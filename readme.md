@@ -97,7 +97,7 @@ actions: # 自定义执行逻辑
 ```
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
-    - plugin: website-fc
+    - plugin: website-fc-serve
       args:
         runtime: custom.debian11
 ```
