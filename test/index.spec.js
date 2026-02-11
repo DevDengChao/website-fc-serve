@@ -47,7 +47,7 @@ test('default index.html', async function () {
     // content are copied from exampleDist to outputDir
     expect(fs.readdirSync(outputDir)).toStrictEqual(fs.readdirSync(exampleDist));
 
-    expect(result.props.runtime).toBe("custom");
+    expect(result.props.runtime).toBe("custom.debian11");
     expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
     expect(result.props.caPort).toBe(9000);
     expect(result.props.customRuntimeConfig.command).toStrictEqual(expectedServeCommand);
@@ -119,10 +119,10 @@ test('should prioritize user-provided runtime over default', async function () {
             code: exampleDist
         }
     }, {
-        runtime: "custom.debian11"
+        runtime: "custom.debian12"
     });
 
-    expect(result.props.runtime).toBe("custom.debian11");
+    expect(result.props.runtime).toBe("custom.debian12");
     expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
     expect(result.props.caPort).toBe(9000);
     expect(result.props.customRuntimeConfig.command).toStrictEqual(expectedServeCommand);

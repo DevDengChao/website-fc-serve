@@ -76,7 +76,7 @@ services:
 | 参数名称 | 默认值 | 参数含义 | 必填 |
 | --- | --- | --- |--- |
 | index  | index.html |  自定义默认首页    | false |
-| runtime  | custom |  自定义函数运行时    | false |
+| runtime  | custom.debian11 |  自定义函数运行时    | false |
 | version  | latest |  serve 依赖版本（npm 版本范围）    | false |
 
 
@@ -93,16 +93,16 @@ actions: # 自定义执行逻辑
 
 **自定义运行时**
 
-`website-fc-serve`插件默认会将函数的运行时设置为`custom`。如果您需要使用其他运行时（如 `custom.debian11` 等），可以通过 `runtime` 参数指定：
+`website-fc-serve`插件默认会将函数的运行时设置为`custom.debian11`。如果您需要使用其他运行时（如 `custom.debian12` 等），可以通过 `runtime` 参数指定：
 ```
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
     - plugin: website-fc-serve
       args:
-        runtime: custom.debian11
+        runtime: custom.debian12
 ```
 
-当您指定了 `runtime` 参数后，插件将优先使用您指定的运行时，而不是默认的 `custom` 运行时。
+当您指定了 `runtime` 参数后，插件将优先使用您指定的运行时，而不是默认的 `custom.debian11` 运行时。
 
 **serve 版本**
 
@@ -195,7 +195,7 @@ resources:
 [插件模型开发指南](https://www.serverless-devs.com/sdm/serverless_package_model/package_model#%E6%8F%92%E4%BB%B6%E6%A8%A1%E5%9E%8B%E8%A7%84%E8%8C%83)
 
 
-website-fc-serve 插件在把你的代码部署到云端前将 `runtime` 覆盖为了 `custom` 运行时, 将 `caPort` 覆盖为了 `9000`,
+website-fc-serve 插件在把你的代码部署到云端前将 `runtime` 覆盖为了 `custom.debian11` 运行时, 将 `caPort` 覆盖为了 `9000`,
 并在 `code/package.json` 中写入 `serve` 依赖（默认 latest，可通过 `version` 指定）。最终通过 `customRuntimeConfig`
 使用 `node ./node_modules/serve/build/main.js -s public -l tcp://0.0.0.0:9000` 启动静态文件服务。
 

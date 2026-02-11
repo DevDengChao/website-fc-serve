@@ -49,7 +49,7 @@ module.exports = async function index(inputs, args, logger) {
   dependencies.serve = serveVersion;
   packageJson.dependencies = dependencies;
   fse.writeJsonSync(packageJsonPath, packageJson, { spaces: 2 });
-  const runtime = lodash.get(args, "runtime", "custom");
+  const runtime = lodash.get(args, "runtime", "custom.debian11");
   return lodash.merge(inputs, {
     props: {
         runtime,
