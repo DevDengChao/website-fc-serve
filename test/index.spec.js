@@ -13,8 +13,8 @@ let exampleDist = path.join(__dirname, "../example/dist");
 let exampleTmpl = path.join(__dirname, "../example/s.yaml");
 let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const expectedServeCommand = ["node"];
-const expectedServeArgs = ["./node_modules/serve/build/main.js", "-s", "public", "-l", "tcp://0.0.0.0:9000"];
+const expectedServeCommand = ["./node_modules/serve"];
+const expectedServeArgs = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
 
 
 test('props.codeUri not present', async function () {
