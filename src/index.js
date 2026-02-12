@@ -66,7 +66,8 @@ module.exports = async function index(inputs, args, logger) {
   const envVars = { ...lodash.get(inputs, "props.environmentVariables", {}) };
   const currentPath = envVars.PATH || "";
   if (!currentPath.includes("/opt/nodejs22/bin")) {
-    envVars.PATH = currentPath ? `/opt/nodejs22/bin:${currentPath}` : "/opt/nodejs22/bin";
+    let defaultPath = `/opt/nodejs22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`;
+    envVars.PATH = currentPath ? `${defaultPath}:${currentPath}` : defaultPath;
   }
   if (!envVars.NODE_PATH) {
     envVars.NODE_PATH = "/opt/nodejs/node_modules";
