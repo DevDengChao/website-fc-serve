@@ -48,7 +48,7 @@ module.exports = async function index(inputs, args, logger) {
   const packageJsonPath = path.join(__dirname, "./code/package.json");
   const packageJson = fse.readJsonSync(packageJsonPath);
   const dependencies = { ...(packageJson.dependencies || {}) };
-  delete dependencies.express;
+
   dependencies.serve = serveVersion;
   packageJson.dependencies = dependencies;
   fse.writeJsonSync(packageJsonPath, packageJson, { spaces: 2 });
