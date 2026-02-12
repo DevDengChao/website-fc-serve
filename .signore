@@ -18,6 +18,7 @@ package-lock.json
 
 README.md
 readme.md
+coverage/
 example/
 test/
 Makefile
