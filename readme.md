@@ -205,7 +205,7 @@ website-fc-serve 插件在把你的代码部署到云端前将 `runtime` 覆盖�
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `PATH` | `/opt/nodejs22/bin` | 如果 `PATH` 中不包含 `/opt/nodejs22/bin`，则将 `/opt/nodejs22/bin` 添加到 `PATH` 最前面 |
+| `PATH` | `/opt/nodejs22/bin` | 如果 `PATH` 中不包含 `/opt/nodejs22/bin`，则将 `/opt/nodejs22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin` 添加到 `PATH` 最前面 |
 | `NODE_PATH` | `/opt/nodejs/node_modules` | 如果未设置 `NODE_PATH`，则自动设置 |
 | `LD_LIBRARY_PATH` | `/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib` | 如果未设置 `LD_LIBRARY_PATH`，则自动设置 |
 
