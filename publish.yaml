@@ -1,11 +1,11 @@
-# https://github.com/Serverless-Devs/Serverless-Devs/blob/master/spec/zh/0.0.3/serverless_package_model/package_model.md#%E6%8F%92%E4%BB%B6%E6%A8%A1%E5%9E%8B%E5%85%83%E6%95%B0%E6%8D%AE
+# https://github.com/Serverless-Devs/Serverless-Devs/blob/master/spec/zh/0.0.4/serverless_package_model/package_model.md#%E6%8F%92%E4%BB%B6%E6%A8%A1%E5%9E%8B%E5%85%83%E6%95%B0%E6%8D%AE
 # https://www.serverless-devs.com/docs/dev-guide/plugin/
 Edition: 3.0.0
 Type: Plugin
 Name: website-fc-serve
 Provider:
   - 阿里云
-Version: 0.0.3
+Version: 0.0.4
 Description: 使用 serve 代替 express 部署静态资源到 FC
 HomePage: https://www.github.com/DevDengChao/website-fc-serve
 Tags: #标签详情
