@@ -13,7 +13,7 @@ let exampleDist = path.join(__dirname, "../example/dist");
 let exampleTmpl = path.join(__dirname, "../example/s.yaml");
 let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const expectedServeCommand = ["./node_modules/serve"];
+const expectedServeCommand = ["./node_modules/.bin/serve"];
 const expectedServeArgs = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
 
 
@@ -207,11 +207,14 @@ test("serve should return index.html content", async function () {
         stdio: "inherit"
     });
 
-    const serveCommand = result.props.customRuntimeConfig.command[0];
     const serveArgs = result.props.customRuntimeConfig.args;
-    const serverProcess = spawn(serveCommand, serveArgs, {
+    // Use absolute path to serve binary for cross-platform compatibility
+    // (the relative path in customRuntimeConfig is for Linux FC runtime)
+    const serveBin = path.join(codeDir, "node_modules", ".bin", "serve");
+    const serverProcess = spawn(serveBin, serveArgs, {
         cwd: codeDir,
-        stdio: "inherit"
+        stdio: "inherit",
+        shell: true,
     });
     serverProcess.unref();
 

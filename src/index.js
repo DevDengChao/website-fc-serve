@@ -55,7 +55,7 @@ module.exports = async function index(inputs, args, logger) {
         runtime,
         code: path.join(__dirname, "./code"), // 支持ZIP能力
         customRuntimeConfig: {
-          command: ["./node_modules/serve"],
+          command: ["./node_modules/.bin/serve"],
           args: ["-s", "public", "-l", `tcp://${HOST}:${PORT}`],
         },
         caPort: PORT,
