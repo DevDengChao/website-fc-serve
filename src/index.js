@@ -3,6 +3,7 @@ const lodash = require("lodash");
 const path = require("path");
 const fse = require("fs-extra");
 const rimraf = require("rimraf");
+const { execSync } = require("child_process");
 
 /**
  * Plugin 插件入口
@@ -49,6 +50,16 @@ module.exports = async function index(inputs, args, logger) {
   dependencies.serve = serveVersion;
   packageJson.dependencies = dependencies;
   fse.writeJsonSync(packageJsonPath, packageJson, { spaces: 2 });
+
+  // Install dependencies via npm
+  const codeDir = path.join(__dirname, "./code");
+  try {
+    execSync("npm install --no-audit --no-fund", { cwd: codeDir });
+  } catch (error) {
+    throw new Error(`Failed to install npm dependencies in ${codeDir}: ${error.message}`);
+  }
+  logger?.debug("npm install completed successfully");
+
   const runtime = lodash.get(args, "runtime", "custom.debian11");
   return lodash.merge(inputs, {
     props: {

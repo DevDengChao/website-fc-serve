@@ -8,6 +8,7 @@ package-lock.json
 .editorconfig
 .gitignore
 
+.copilot
 .github
 .idea
 .vscode
@@ -17,8 +18,6 @@ package-lock.json
 
 README.md
 readme.md
-./example
-./test
-./Makefile
-./f2elint.config.js
-./commitlint.config.js
+example/
+test/
+Makefile
