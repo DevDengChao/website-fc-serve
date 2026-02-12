@@ -1,4 +1,3 @@
-
 const lodash = require("lodash");
 const path = require("path");
 const fse = require("fs-extra");
@@ -19,8 +18,8 @@ module.exports = async function index(inputs, args, logger) {
   if (lodash.isEmpty(codeUri)) throw new Error("props.code not found.");
   const bashPath = lodash.get(inputs, "cwd");
   let newCodeUri = path.isAbsolute(codeUri)
-      ? codeUri
-      : path.join(bashPath, codeUri);
+    ? codeUri
+    : path.join(bashPath, codeUri);
 
   // Resolve symbolic link to actual directory
   const stats = fse.lstatSync(newCodeUri);
@@ -40,7 +39,10 @@ module.exports = async function index(inputs, args, logger) {
     throw new Error(`${index} file not found.`);
   }
   if (index !== "index.html") {
-    fse.copySync(path.join(publicPath, index), path.join(publicPath, "index.html"));
+    fse.copySync(
+      path.join(publicPath, index),
+      path.join(publicPath, "index.html"),
+    );
   }
   const serveVersion = lodash.get(args, "version", "latest");
   const packageJsonPath = path.join(__dirname, "./code/package.json");
@@ -56,36 +58,45 @@ module.exports = async function index(inputs, args, logger) {
   try {
     execSync("npm install --no-audit --no-fund", { cwd: codeDir });
   } catch (error) {
-    throw new Error(`Failed to install npm dependencies in ${codeDir}: ${error.message}`);
+    throw new Error(
+      `Failed to install npm dependencies in ${codeDir}: ${error.message}`,
+    );
   }
   logger?.debug("npm install completed successfully");
 
   const runtime = lodash.get(args, "runtime", "custom.debian11");
 
+  let layers = lodash.get(inputs, "props.layers", []);
+  let region = lodash.get(inputs, "props.region");
+  // https://github.com/awesome-fc/awesome-layers/tree/main/docs/Nodejs22
+  let nodejsLayer = `acs:fc:${region}:official:layers/Nodejs22/versions/2`;
+  if (!layers.includes(nodejsLayer)) layers.unshift(nodejsLayer);
+
   // Ensure environment variables for Node.js runtime
   const envVars = { ...lodash.get(inputs, "props.environmentVariables", {}) };
   const currentPath = envVars.PATH || "";
-  if (!currentPath.includes("/opt/nodejs22/bin")) {
-    let defaultPath = `/opt/nodejs22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`;
-    envVars.PATH = currentPath ? `${defaultPath}:${currentPath}` : defaultPath;
+  let nodejsBin = `/opt/nodejs22/bin`;
+  if (!currentPath.includes(nodejsBin)) {
+    envVars.PATH = currentPath ? `${nodejsBin}:${currentPath}` : nodejsBin;
   }
   if (!envVars.NODE_PATH) {
     envVars.NODE_PATH = "/opt/nodejs/node_modules";
   }
   if (!envVars.LD_LIBRARY_PATH) {
-    envVars.LD_LIBRARY_PATH = "/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib";
+    envVars.LD_LIBRARY_PATH =
+      "/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib";
   }
 
   return lodash.merge(inputs, {
     props: {
-        runtime,
-        code: path.join(__dirname, "./code"), // 支持ZIP能力
-        customRuntimeConfig: {
-          command: ["./node_modules/.bin/serve"],
-          args: ["-s", "public", "-l", `tcp://${HOST}:${PORT}`],
-        },
-        caPort: PORT,
-        environmentVariables: envVars,
+      runtime,
+      code: path.join(__dirname, "./code"), // 支持ZIP能力
+      customRuntimeConfig: {
+        command: ["./node_modules/.bin/serve"],
+        args: ["-s", "public", "-l", `tcp://${HOST}:${PORT}`],
+      },
+      caPort: PORT,
+      environmentVariables: envVars,
     },
   });
 };
