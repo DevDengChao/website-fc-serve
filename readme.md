@@ -199,6 +199,18 @@ website-fc-serve 插件在把你的代码部署到云端前将 `runtime` 覆盖�
 并在 `code/package.json` 中写入 `serve` 依赖（默认 latest，可通过 `version` 指定）。最终通过 `customRuntimeConfig`
 使用 `node ./node_modules/serve/build/main.js -s public -l tcp://0.0.0.0:9000` 启动静态文件服务。
 
+#### 环境变量自动配置
+
+插件会自动检查并补充以下环境变量，确保 Node.js 运行时在函数计算环境中正常工作：
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PATH` | `/opt/nodejs22/bin` | 如果 `PATH` 中不包含 `/opt/nodejs22/bin`，则将 `/opt/nodejs22/bin` 添加到 `PATH` 最前面 |
+| `NODE_PATH` | `/opt/nodejs/node_modules` | 如果未设置 `NODE_PATH`，则自动设置 |
+| `LD_LIBRARY_PATH` | `/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib` | 如果未设置 `LD_LIBRARY_PATH`，则自动设置 |
+
+如果您已在 `props.environmentVariables` 中自定义了这些环境变量，插件会保留您的配置不做修改。
+
 # 关于我们
 - Serverless Devs 工具：
     - 仓库：[https://www.github.com/serverless-devs/serverless-devs](https://www.github.com/serverless-devs/serverless-devs)    

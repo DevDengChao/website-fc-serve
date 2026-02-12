@@ -61,6 +61,20 @@ module.exports = async function index(inputs, args, logger) {
   logger?.debug("npm install completed successfully");
 
   const runtime = lodash.get(args, "runtime", "custom.debian11");
+
+  // Ensure environment variables for Node.js runtime
+  const envVars = { ...lodash.get(inputs, "props.environmentVariables", {}) };
+  const currentPath = envVars.PATH || "";
+  if (!currentPath.includes("/opt/nodejs22/bin")) {
+    envVars.PATH = currentPath ? `/opt/nodejs22/bin:${currentPath}` : "/opt/nodejs22/bin";
+  }
+  if (!envVars.NODE_PATH) {
+    envVars.NODE_PATH = "/opt/nodejs/node_modules";
+  }
+  if (!envVars.LD_LIBRARY_PATH) {
+    envVars.LD_LIBRARY_PATH = "/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib";
+  }
+
   return lodash.merge(inputs, {
     props: {
         runtime,
@@ -70,6 +84,7 @@ module.exports = async function index(inputs, args, logger) {
           args: ["-s", "public", "-l", `tcp://${HOST}:${PORT}`],
         },
         caPort: PORT,
+        environmentVariables: envVars,
     },
   });
 };
