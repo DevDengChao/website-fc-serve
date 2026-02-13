@@ -67,6 +67,7 @@ module.exports = async function index(inputs, args, logger) {
   }
   logger?.debug("npm install completed successfully");
 
+  const fallbackToIndex = args?.fallbackToIndex ?? false;
   const runtime = args?.runtime ?? "custom.debian11";
 
   let layers = [...(inputs?.props?.layers ?? [])];
@@ -124,7 +125,12 @@ module.exports = async function index(inputs, args, logger) {
       code: path.join(__dirname, "./code"),
       customRuntimeConfig: {
         command: ["./node_modules/.bin/serve"],
-        args: ["-s", "public", "-l", `tcp://${HOST}:${PORT}`],
+        args: [
+          ...(fallbackToIndex ? ["-s"] : []),
+          "public",
+          "-l",
+          `tcp://${HOST}:${PORT}`,
+        ],
       },
       caPort: PORT,
       environmentVariables: envVars,

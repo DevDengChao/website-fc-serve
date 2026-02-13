@@ -4,7 +4,7 @@
 
 <p align="center" class="flex justify-center">
   <a href="https://nodejs.org/en/" class="ml-1">
-    <img src="https://img.shields.io/badge/node-%3E%3D%2010.8.0-brightgreen" alt="node.js version">
+    <img src="https://img.shields.io/badge/node-%3E%3D%2016-brightgreen" alt="node.js version">
   </a>
   <a href="https://github.com/devsapp/website-fc/blob/master/LICENSE" class="ml-1">
     <img src="https://img.shields.io/badge/License-MIT-green" alt="license">
@@ -58,44 +58,46 @@
 
 1. 在执行部署之前声明对应的插件`website-fc-serve`
 
-```
+```yaml
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
     - plugin: website-fc-serve
 ```
 
-2. 更改函数的[codeUri](https://serverless-devs.com/fc/yaml/function)为静态资源的本地地址
+2. 更改函数的 `code` 为静态资源的本地地址
 
-```
-services:
+```yaml
+resources:
   website:
-    component: fc
+    component: fc3
     actions: # 自定义执行逻辑
       pre-deploy: # 在deploy之前运行
         - plugin: website-fc-serve
-    props: #  组件的属性值
+    props: # 组件的属性值
       region: ${vars.region}
-      name: http-trigger-nodejs14
-      description: 'hello world by serverless devs'
-      runtime: nodejs14
-      codeUri: ./build # 本地静态资源的地址
+      functionName: my-website
+      description: 'Serverless static website'
+      timeout: 30
+      memorySize: 512
+      code: ./dist # 本地静态资源的地址
 ```
 
 #### 参数说明
 
 参数详情：
 
-| 参数名称 | 默认值          | 参数含义                       | 必填  |
-| -------- | --------------- | ------------------------------ | ----- |
-| index    | index.html      | 自定义默认首页                 | false |
-| runtime  | custom.debian11 | 自定义函数运行时               | false |
-| version  | latest          | serve 依赖版本（npm 版本范围） | false |
+| 参数名称        | 默认值          | 参数含义                                             | 必填  |
+| --------------- | --------------- | ---------------------------------------------------- | ----- |
+| index           | index.html      | 自定义默认首页                                       | false |
+| fallbackToIndex | false           | 是否对未匹配的路由返回首页（SPA 模式，对应 serve -s） | false |
+| runtime         | custom.debian11 | 自定义函数运行时                                     | false |
+| version         | latest          | serve 依赖版本（npm 版本范围）                       | false |
 
 我们知道访问静态网站需要一个`html`的页面作为首页，比如您访问`http://www.serverless-devs.com/`首页的时候，其实实际访问的资源是`http://www.serverless-devs.com/index.html`。
 
 `website-fc-serve`插件的默认行为也是会将您的默认首页指向`index.html`。如果您需要自定义您的首页为`demo.html`。只需要做如下声明
 
-```
+```yaml
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
     - plugin: website-fc-serve
@@ -103,11 +105,25 @@ actions: # 自定义执行逻辑
         index: demo.html
 ```
 
+**首页兜底（SPA 模式）**
+
+默认情况下，访问不存在的路径会返回 404。如果您的项目是单页应用（SPA），需要将所有未匹配的路由回退到 `index.html`，可以启用 `fallbackToIndex`：
+
+```yaml
+actions: # 自定义执行逻辑
+  pre-deploy: # 在deploy之前运行
+    - plugin: website-fc-serve
+      args:
+        fallbackToIndex: true
+```
+
+此参数对应 `serve` 的 `-s`（Single Page Application）选项。启用后，任何无法匹配到静态文件的请求都会返回 `index.html`，适用于 Vue Router、React Router 等前端路由方案。
+
 **自定义运行时**
 
 `website-fc-serve`插件默认会将函数的运行时设置为`custom.debian11`。如果您需要使用其他运行时（如 `custom.debian12` 等），可以通过 `runtime` 参数指定：
 
-```
+```yaml
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
     - plugin: website-fc-serve
@@ -121,7 +137,7 @@ actions: # 自定义执行逻辑
 
 默认使用 npm 上最新稳定版的 `serve`。如需指定版本，可传入 `version` 参数：
 
-```
+```yaml
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
     - plugin: website-fc-serve
@@ -135,7 +151,7 @@ actions: # 自定义执行逻辑
 
 `website-fc-serve`只能在`pre-deploy`阶段生效。
 
-```
+```yaml
 actions: # 自定义执行逻辑
   pre-deploy: # 在deploy之前运行
     - plugin: website-fc-serve
@@ -147,13 +163,13 @@ actions: # 自定义执行逻辑
 
 ```
 - dist
-  - index.htm
+  - index.html
 - s.yaml
 ```
 
 - yaml配置如下
 
-```
+```yaml
 edition: 3.0.0         #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范
 name: component-test   #  项目名称
 access: default        # 密钥别名
@@ -167,27 +183,16 @@ resources:
     component: fc3
     actions: # 自定义执行逻辑
       pre-deploy: # 在deploy之前运行
-        - plugin: ${path('..')}
+        - plugin: website-fc-serve
           args:
             index: demo.html
     props: # 组件的属性值
       region: ${vars.region}
       functionName: ${vars.functionName}
-      description: "Serverless Devs Website hexo Function"
+      description: "Serverless Devs Website Function"
       timeout: 30
       memorySize: 512
       code: ./dist
-      runtime: custom
-      # triggers:
-      #   - triggerName: httpTrigger
-      #     triggerType: http
-      #     triggerConfig:
-      #       authType: anonymous
-      #       methods:
-      #         - GET
-      #         - POST
-      #         - PUT
-      #         - DELETE
   fc3_domain_0:
     component: fc3-domain
     props:
@@ -220,7 +225,11 @@ resources:
 
 website-fc-serve 插件在把你的代码部署到云端前将 `runtime` 覆盖为了 `custom.debian11` 运行时, 将 `caPort` 覆盖为了 `9000`,
 并在 `code/package.json` 中写入 `serve` 依赖（默认 latest，可通过 `version` 指定）。最终通过 `customRuntimeConfig`
-使用 `node ./node_modules/serve/build/main.js -s public -l tcp://0.0.0.0:9000` 启动静态文件服务。
+使用 `./node_modules/.bin/serve -s public -l tcp://0.0.0.0:9000` 启动静态文件服务。
+
+#### 零外部依赖
+
+插件本身不依赖任何第三方 npm 包，仅使用 Node.js 内置模块（`fs`、`path`、`child_process`），确保打包体积最小化。
 
 #### Layer 自动配置
 

@@ -14,7 +14,8 @@ let exampleTmpl = path.join(__dirname, "../example/s.yaml");
 let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const expectedServeCommand = ["./node_modules/.bin/serve"];
-const expectedServeArgs = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
+const expectedServeArgs = ["public", "-l", "tcp://0.0.0.0:9000"];
+const expectedServeArgsWithFallback = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
 
 test("props.codeUri not present", async function () {
   try {
@@ -278,6 +279,64 @@ test("should throw error when no layers and no region provided", async function 
       "props.region is required when no Nodejs layer is provided.",
     );
   }
+});
+
+test("should not use -s flag by default (fallbackToIndex defaults to false)", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {},
+  );
+
+  expect(result.props.customRuntimeConfig.args).toStrictEqual(
+    expectedServeArgs,
+  );
+  expect(result.props.customRuntimeConfig.args).not.toContain("-s");
+});
+
+test("should use -s flag when fallbackToIndex is true", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {
+      fallbackToIndex: true,
+    },
+  );
+
+  expect(result.props.customRuntimeConfig.args).toStrictEqual(
+    expectedServeArgsWithFallback,
+  );
+  expect(result.props.customRuntimeConfig.args[0]).toBe("-s");
+});
+
+test("should not use -s flag when fallbackToIndex is explicitly false", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {
+      fallbackToIndex: false,
+    },
+  );
+
+  expect(result.props.customRuntimeConfig.args).toStrictEqual(
+    expectedServeArgs,
+  );
+  expect(result.props.customRuntimeConfig.args).not.toContain("-s");
 });
 
 test("should not require region when Nodejs layer is already provided", async function () {
