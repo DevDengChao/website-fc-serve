@@ -30,6 +30,7 @@ test("path.cwd not present", async function () {
     {
       props: {
         code: exampleDist,
+        region: "cn-hangzhou",
       },
     },
     {},
@@ -43,6 +44,7 @@ test("default index.html", async function () {
       cwd: exampleDir,
       props: {
         code: exampleDist,
+        region: "cn-hangzhou",
       },
     },
     {},
@@ -68,6 +70,7 @@ test("relative codeUri", async function () {
     cwd: exampleDir,
     props: {
       code: originCodeUri,
+      region: "cn-hangzhou",
     },
   };
   let result = await subject(inputs, {});
@@ -81,6 +84,7 @@ test("custom index.htm", async function () {
       cwd: exampleDir,
       props: {
         code: exampleDist,
+        region: "cn-hangzhou",
       },
     },
     {
@@ -106,6 +110,7 @@ test("props.code is a symlink", async function () {
         cwd: exampleDir,
         props: {
           code: symlinkPath,
+          region: "cn-hangzhou",
         },
       },
       {},
@@ -135,6 +140,7 @@ test("should prioritize user-provided runtime over default", async function () {
       cwd: exampleDir,
       props: {
         code: exampleDist,
+        region: "cn-hangzhou",
       },
     },
     {
@@ -150,6 +156,149 @@ test("should prioritize user-provided runtime over default", async function () {
   );
   expect(result.props.customRuntimeConfig.args).toStrictEqual(
     expectedServeArgs,
+  );
+});
+
+test("should add default Nodejs22 layer when no layers provided", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {},
+  );
+
+  expect(result.props.layers).toStrictEqual([
+    "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
+  ]);
+  expect(result.props.environmentVariables.PATH).toContain(
+    "/opt/nodejs22/bin",
+  );
+});
+
+test("should add default Nodejs22 layer when layers exist but no Nodejs layer", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+        layers: [
+          "acs:fc:cn-hangzhou:official:layers/Python310/versions/1",
+        ],
+      },
+    },
+    {},
+  );
+
+  expect(result.props.layers).toStrictEqual([
+    "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
+    "acs:fc:cn-hangzhou:official:layers/Python310/versions/1",
+  ]);
+  expect(result.props.environmentVariables.PATH).toContain(
+    "/opt/nodejs22/bin",
+  );
+});
+
+test("should detect Nodejs version from existing layer and set nodejsBin accordingly", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+        layers: [
+          "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/2",
+        ],
+      },
+    },
+    {},
+  );
+
+  // Should NOT add default Nodejs22 layer
+  expect(result.props.layers).toStrictEqual([
+    "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/2",
+  ]);
+  expect(result.props.environmentVariables.PATH).toContain(
+    "/opt/nodejs20/bin",
+  );
+  expect(result.props.environmentVariables.PATH).not.toContain(
+    "/opt/nodejs22/bin",
+  );
+});
+
+test("should use first matched Nodejs layer when multiple exist", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+        layers: [
+          "acs:fc:cn-hangzhou:official:layers/Nodejs18/versions/1",
+          "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
+        ],
+      },
+    },
+    {},
+  );
+
+  expect(result.props.layers).toStrictEqual([
+    "acs:fc:cn-hangzhou:official:layers/Nodejs18/versions/1",
+    "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
+  ]);
+  expect(result.props.environmentVariables.PATH).toContain(
+    "/opt/nodejs18/bin",
+  );
+  // Verify only one nodejs bin path exists
+  const pathEntries = result.props.environmentVariables.PATH.split(":");
+  const nodejsBinEntries = pathEntries.filter((p) =>
+    p.match(/\/opt\/nodejs\d+\/bin/),
+  );
+  expect(nodejsBinEntries).toHaveLength(1);
+});
+
+test("should throw error when no layers and no region provided", async function () {
+  try {
+    await subject(
+      {
+        cwd: exampleDir,
+        props: {
+          code: exampleDist,
+        },
+      },
+      {},
+    );
+    fail();
+  } catch (e) {
+    expect(e.message).toBe(
+      "props.region is required when no Nodejs layer is provided.",
+    );
+  }
+});
+
+test("should not require region when Nodejs layer is already provided", async function () {
+  let result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        layers: [
+          "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/1",
+        ],
+      },
+    },
+    {},
+  );
+
+  expect(result.props.layers).toStrictEqual([
+    "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/1",
+  ]);
+  expect(result.props.environmentVariables.PATH).toContain(
+    "/opt/nodejs20/bin",
   );
 });
 
@@ -223,6 +372,7 @@ test("serve should return index.html content", async function () {
       cwd: exampleDir,
       props: {
         code: exampleDist,
+        region: "cn-hangzhou",
       },
     },
     {},

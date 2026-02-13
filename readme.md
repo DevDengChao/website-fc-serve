@@ -222,15 +222,35 @@ website-fc-serve 插件在把你的代码部署到云端前将 `runtime` 覆盖�
 并在 `code/package.json` 中写入 `serve` 依赖（默认 latest，可通过 `version` 指定）。最终通过 `customRuntimeConfig`
 使用 `node ./node_modules/serve/build/main.js -s public -l tcp://0.0.0.0:9000` 启动静态文件服务。
 
+#### Layer 自动配置
+
+插件会自动管理 Node.js 运行时 Layer：
+
+- **未配置 Layer**：自动添加默认的 `Nodejs22` 官方 Layer（`acs:fc:{region}:official:layers/Nodejs22/versions/1`）
+- **已配置 Layer 但不包含 Nodejs Layer**：仍然自动补充默认的 `Nodejs22` Layer
+- **已配置包含 Nodejs Layer**：从 Layer ARN 中提取 Node.js 版本号，自动调整 `PATH` 中的 `nodejsBin` 路径
+
+例如，如果您配置了 `Nodejs20` 的 Layer：
+
+```yaml
+props:
+  layers:
+    - acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/2
+```
+
+插件会自动将 `PATH` 设置为 `/opt/nodejs20/bin`，而非默认的 `/opt/nodejs22/bin`。
+
+> 插件仅识别官方 Nodejs Layer（ARN 格式为 `acs:fc:{region}:official:layers/Nodejs{version}/versions/{n}`）。
+
 #### 环境变量自动配置
 
 插件会自动检查并补充以下环境变量，确保 Node.js 运行时在函数计算环境中正常工作：
 
-| 环境变量          | 默认值                                             | 说明                                                                                                                                                 |
-| ----------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PATH`            | `/opt/nodejs22/bin`                                | 如果 `PATH` 中不包含 `/opt/nodejs22/bin`，则将 `/opt/nodejs22/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin` 添加到 `PATH` 最前面 |
-| `NODE_PATH`       | `/opt/nodejs/node_modules`                         | 如果未设置 `NODE_PATH`，则自动设置                                                                                                                   |
-| `LD_LIBRARY_PATH` | `/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib` | 如果未设置 `LD_LIBRARY_PATH`，则自动设置                                                                                                             |
+| 环境变量          | 默认值                                             | 说明                                                                                                                                                                         |
+| ----------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PATH`            | `/opt/nodejs{version}/bin`                         | 根据检测到的 Nodejs Layer 版本自动设置（默认 `nodejs22`），如果 `PATH` 中不包含对应路径，则添加到 `PATH` 最前面 |
+| `NODE_PATH`       | `/opt/nodejs/node_modules`                         | 如果未设置 `NODE_PATH`，则自动设置                                                                                                                                           |
+| `LD_LIBRARY_PATH` | `/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib` | 如果未设置 `LD_LIBRARY_PATH`，则自动设置                                                                                                                                     |
 
 如果您已在 `props.environmentVariables` 中自定义了这些环境变量，插件会保留您的配置不做修改。
 

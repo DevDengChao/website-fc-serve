@@ -66,17 +66,38 @@ module.exports = async function index(inputs, args, logger) {
 
   const runtime = lodash.get(args, "runtime", "custom.debian11");
 
-  let layers = lodash.get(inputs, "props.layers", []);
-  let region = lodash.get(inputs, "props.region");
-  // https://github.com/awesome-fc/awesome-layers/tree/main/docs/Nodejs22
-  let nodejsLayer = `acs:fc:${region}:official:layers/Nodejs22/versions/2`;
-  if (!layers.includes(nodejsLayer)) layers.unshift(nodejsLayer);
+  let layers = [...lodash.get(inputs, "props.layers", [])];
+  // Try to detect Node.js version from existing official layers
+
+  // Pattern: acs:fc:{region}:official:layers/Nodejs{version}/versions/{n}
+  const nodejsLayerRegex =
+    /^acs:fc:[^:]+:official:layers\/Nodejs(\d+)\/versions\/\d+$/;
+  let nodejsVersion = null;
+  for (const layer of layers) {
+    const match = layer.match(nodejsLayerRegex);
+    if (match) {
+      nodejsVersion = match[1];
+      break;
+    }
+  }
+  // If no Node.js layer found, add default Nodejs22 layer
+
+  if (!nodejsVersion) {
+    let region = lodash.get(inputs, "props.region");
+    if (!region) {
+      throw new Error("props.region is required when no Nodejs layer is provided.");
+    }
+    nodejsVersion = "22";
+    const defaultLayer = `acs:fc:${region}:official:layers/Nodejs${nodejsVersion}/versions/1`;
+    layers.unshift(defaultLayer);
+  }
 
   // Ensure environment variables for Node.js runtime
   const envVars = { ...lodash.get(inputs, "props.environmentVariables", {}) };
   const currentPath = envVars.PATH || "";
-  let nodejsBin = `/opt/nodejs22/bin`;
-  if (!currentPath.includes(nodejsBin)) {
+  let nodejsBin = `/opt/nodejs${nodejsVersion}/bin`;
+  const pathEntries = currentPath ? currentPath.split(":") : [];
+  if (!pathEntries.includes(nodejsBin)) {
     envVars.PATH = currentPath ? `${nodejsBin}:${currentPath}` : nodejsBin;
   }
   if (!envVars.NODE_PATH) {
@@ -90,6 +111,7 @@ module.exports = async function index(inputs, args, logger) {
   return lodash.merge(inputs, {
     props: {
       runtime,
+      layers,
       code: path.join(__dirname, "./code"), // 支持ZIP能力
       customRuntimeConfig: {
         command: ["./node_modules/.bin/serve"],
