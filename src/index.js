@@ -94,7 +94,9 @@ module.exports = async function index(inputs, args, logger) {
 
   // Ensure environment variables for Node.js runtime
   const envVars = { ...lodash.get(inputs, "props.environmentVariables", {}) };
-  const currentPath = envVars.PATH || "";
+  const currentPath =
+    envVars.PATH ||
+    `/var/fc/lang/nodejs${nodejsVersion}/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin:/code:/code/bin`;
   let nodejsBin = `/opt/nodejs${nodejsVersion}/bin`;
   const pathEntries = currentPath ? currentPath.split(":") : [];
   if (!pathEntries.includes(nodejsBin)) {
