@@ -26,11 +26,11 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.2",
-    "axios": "^1.7.9",
     "jest": "^27.5.1",
     "prettier": "^3.8.1"
   },
   "jest": {
-    "collectCoverage": true
+    "collectCoverage": true,
+    "forceExit": true
   }
 }

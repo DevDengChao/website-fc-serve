@@ -1,16 +1,13 @@
 let subject = require("../src/index");
 let fs = require("fs");
-const fse = require("fs-extra");
 const path = require("path");
-const axios = require("axios");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const http = require("http");
 
 jest.setTimeout(120000);
 
 let exampleDir = path.join(__dirname, "../example");
 let exampleDist = path.join(__dirname, "../example/dist");
-let exampleTmpl = path.join(__dirname, "../example/s.yaml");
 let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const expectedServeCommand = ["./node_modules/.bin/serve"];
@@ -97,11 +94,11 @@ test("custom index.htm", async function () {
 test("props.code is a symlink", async function () {
   const symlinkPath = path.join(__dirname, "../example/dist-link");
   // Clean up symlink if it exists from a previous test run
-  if (fse.existsSync(symlinkPath)) {
-    fse.removeSync(symlinkPath);
+  if (fs.existsSync(symlinkPath)) {
+    fs.rmSync(symlinkPath, { force: true });
   }
   // Create a junction (works without admin privileges on Windows) or symlink
-  fse.ensureSymlinkSync(exampleDist, symlinkPath, "junction");
+  fs.symlinkSync(exampleDist, symlinkPath, "junction");
 
   const mockLogger = { debug: jest.fn() };
 
@@ -131,7 +128,7 @@ test("props.code is a symlink", async function () {
     );
   } finally {
     // Clean up symlink after test
-    fse.removeSync(symlinkPath);
+    fs.rmSync(symlinkPath, { force: true });
   }
 });
 
@@ -375,20 +372,21 @@ test("serve should return index.html content", async function () {
       });
     });
 
-  const getWithoutKeepAlive = async (url) => {
-    const agent = new http.Agent({ keepAlive: false });
-    try {
-      return await axios.get(url, { httpAgent: agent });
-    } finally {
-      agent.destroy();
-    }
-  };
+  const httpGet = (url) =>
+    new Promise((resolve, reject) => {
+      const req = http.get(url, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => resolve(data));
+      });
+      req.on("error", reject);
+    });
 
   const waitForServer = async (url, timeoutMs) => {
     const startTime = Date.now();
     while (Date.now() - startTime < timeoutMs) {
       try {
-        return await getWithoutKeepAlive(url);
+        return await httpGet(url);
       } catch (error) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
@@ -401,27 +399,44 @@ test("serve should return index.html content", async function () {
       return;
     }
     const closePromise = new Promise((resolve) => child.once("close", resolve));
-    child.kill();
-    let closed = await Promise.race([
-      closePromise.then(() => true),
-      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
-    ]);
-    if (closed || !child.pid) {
-      return;
-    }
-    try {
-      process.kill(child.pid, "SIGKILL");
-    } catch (error) {
-      if (error.code !== "ESRCH") {
-        throw error;
+    if (process.platform === "win32") {
+      // On Windows with shell: true, child.kill() only kills the shell (cmd.exe),
+      // not the spawned serve process. Use taskkill /T to kill the process tree.
+      try {
+        execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: "ignore" });
+      } catch (error) {
+        // Process may have already exited
       }
-    }
-    closed = await Promise.race([
-      closePromise.then(() => true),
-      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
-    ]);
-    if (!closed && child.exitCode === null) {
-      throw new Error("Failed to stop serve process.");
+      await Promise.race([
+        closePromise.then(() => true),
+        new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+      ]);
+      // Release child process references to avoid keeping the event loop alive
+      child.removeAllListeners();
+      child.unref();
+    } else {
+      child.kill();
+      let closed = await Promise.race([
+        closePromise.then(() => true),
+        new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+      ]);
+      if (closed || !child.pid) {
+        return;
+      }
+      try {
+        process.kill(child.pid, "SIGKILL");
+      } catch (error) {
+        if (error.code !== "ESRCH") {
+          throw error;
+        }
+      }
+      closed = await Promise.race([
+        closePromise.then(() => true),
+        new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+      ]);
+      if (!closed && child.exitCode === null) {
+        throw new Error("Failed to stop serve process.");
+      }
     }
   };
 
@@ -448,18 +463,17 @@ test("serve should return index.html content", async function () {
   const serveBin = path.join(codeDir, "node_modules", ".bin", "serve");
   const serverProcess = spawn(serveBin, serveArgs, {
     cwd: codeDir,
-    stdio: "inherit",
+    stdio: "ignore",
     shell: true,
   });
-  serverProcess.unref();
 
   try {
-    const response = await waitForServer("http://localhost:9000", 30000);
+    const body = await waitForServer("http://localhost:9000", 30000);
     const indexHtml = fs.readFileSync(
       path.join(codeDir, "public", "index.html"),
       "utf-8",
     );
-    expect(response.data).toContain(indexHtml.trim());
+    expect(body).toContain(indexHtml.trim());
   } finally {
     await stopProcess(serverProcess, 5000);
   }
