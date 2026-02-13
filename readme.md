@@ -76,7 +76,7 @@ resources:
     props: # 组件的属性值
       region: ${vars.region}
       functionName: my-website
-      description: 'Serverless static website'
+      description: "Serverless static website"
       timeout: 30
       memorySize: 512
       code: ./dist # 本地静态资源的地址
@@ -86,12 +86,12 @@ resources:
 
 参数详情：
 
-| 参数名称        | 默认值          | 参数含义                                             | 必填  |
-| --------------- | --------------- | ---------------------------------------------------- | ----- |
-| index           | index.html      | 自定义默认首页                                       | false |
+| 参数名称        | 默认值          | 参数含义                                              | 必填  |
+| --------------- | --------------- | ----------------------------------------------------- | ----- |
+| index           | index.html      | 自定义默认首页                                        | false |
 | fallbackToIndex | false           | 是否对未匹配的路由返回首页（SPA 模式，对应 serve -s） | false |
-| runtime         | custom.debian11 | 自定义函数运行时                                     | false |
-| version         | latest          | serve 依赖版本（npm 版本范围）                       | false |
+| runtime         | custom.debian11 | 自定义函数运行时                                      | false |
+| version         | latest          | serve 依赖版本（npm 版本范围）                        | false |
 
 我们知道访问静态网站需要一个`html`的页面作为首页，比如您访问`http://www.serverless-devs.com/`首页的时候，其实实际访问的资源是`http://www.serverless-devs.com/index.html`。
 
@@ -170,9 +170,9 @@ actions: # 自定义执行逻辑
 - yaml配置如下
 
 ```yaml
-edition: 3.0.0         #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范
-name: component-test   #  项目名称
-access: default        # 密钥别名
+edition: 3.0.0 #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范
+name: component-test #  项目名称
+access: default # 密钥别名
 
 vars: # 全局变量
   region: cn-hangzhou
@@ -255,11 +255,11 @@ props:
 
 插件会自动检查并补充以下环境变量，确保 Node.js 运行时在函数计算环境中正常工作：
 
-| 环境变量          | 默认值                                             | 说明                                                                                                                                                                         |
-| ----------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 环境变量          | 默认值                                             | 说明                                                                                                            |
+| ----------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `PATH`            | `/opt/nodejs{version}/bin`                         | 根据检测到的 Nodejs Layer 版本自动设置（默认 `nodejs22`），如果 `PATH` 中不包含对应路径，则添加到 `PATH` 最前面 |
-| `NODE_PATH`       | `/opt/nodejs/node_modules`                         | 如果未设置 `NODE_PATH`，则自动设置                                                                                                                                           |
-| `LD_LIBRARY_PATH` | `/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib` | 如果未设置 `LD_LIBRARY_PATH`，则自动设置                                                                                                                                     |
+| `NODE_PATH`       | `/opt/nodejs/node_modules`                         | 如果未设置 `NODE_PATH`，则自动设置                                                                              |
+| `LD_LIBRARY_PATH` | `/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib` | 如果未设置 `LD_LIBRARY_PATH`，则自动设置                                                                        |
 
 如果您已在 `props.environmentVariables` 中自定义了这些环境变量，插件会保留您的配置不做修改。
 

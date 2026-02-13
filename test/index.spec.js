@@ -12,7 +12,12 @@ let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const expectedServeCommand = ["./node_modules/.bin/serve"];
 const expectedServeArgs = ["public", "-l", "tcp://0.0.0.0:9000"];
-const expectedServeArgsWithFallback = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
+const expectedServeArgsWithFallback = [
+  "-s",
+  "public",
+  "-l",
+  "tcp://0.0.0.0:9000",
+];
 
 test("props.codeUri not present", async function () {
   try {
@@ -172,9 +177,7 @@ test("should add default Nodejs22 layer when no layers provided", async function
   expect(result.props.layers).toStrictEqual([
     "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
   ]);
-  expect(result.props.environmentVariables.PATH).toContain(
-    "/opt/nodejs22/bin",
-  );
+  expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs22/bin");
 });
 
 test("should add default Nodejs22 layer when layers exist but no Nodejs layer", async function () {
@@ -184,9 +187,7 @@ test("should add default Nodejs22 layer when layers exist but no Nodejs layer", 
       props: {
         code: exampleDist,
         region: "cn-hangzhou",
-        layers: [
-          "acs:fc:cn-hangzhou:official:layers/Python310/versions/1",
-        ],
+        layers: ["acs:fc:cn-hangzhou:official:layers/Python310/versions/1"],
       },
     },
     {},
@@ -196,9 +197,7 @@ test("should add default Nodejs22 layer when layers exist but no Nodejs layer", 
     "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
     "acs:fc:cn-hangzhou:official:layers/Python310/versions/1",
   ]);
-  expect(result.props.environmentVariables.PATH).toContain(
-    "/opt/nodejs22/bin",
-  );
+  expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs22/bin");
 });
 
 test("should detect Nodejs version from existing layer and set nodejsBin accordingly", async function () {
@@ -208,9 +207,7 @@ test("should detect Nodejs version from existing layer and set nodejsBin accordi
       props: {
         code: exampleDist,
         region: "cn-hangzhou",
-        layers: [
-          "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/2",
-        ],
+        layers: ["acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/2"],
       },
     },
     {},
@@ -220,9 +217,7 @@ test("should detect Nodejs version from existing layer and set nodejsBin accordi
   expect(result.props.layers).toStrictEqual([
     "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/2",
   ]);
-  expect(result.props.environmentVariables.PATH).toContain(
-    "/opt/nodejs20/bin",
-  );
+  expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs20/bin");
   expect(result.props.environmentVariables.PATH).not.toContain(
     "/opt/nodejs22/bin",
   );
@@ -248,9 +243,7 @@ test("should use first matched Nodejs layer when multiple exist", async function
     "acs:fc:cn-hangzhou:official:layers/Nodejs18/versions/1",
     "acs:fc:cn-hangzhou:official:layers/Nodejs22/versions/1",
   ]);
-  expect(result.props.environmentVariables.PATH).toContain(
-    "/opt/nodejs18/bin",
-  );
+  expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs18/bin");
   // Verify only one nodejs bin path exists
   const pathEntries = result.props.environmentVariables.PATH.split(":");
   const nodejsBinEntries = pathEntries.filter((p) =>
@@ -342,9 +335,7 @@ test("should not require region when Nodejs layer is already provided", async fu
       cwd: exampleDir,
       props: {
         code: exampleDist,
-        layers: [
-          "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/1",
-        ],
+        layers: ["acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/1"],
       },
     },
     {},
@@ -353,9 +344,7 @@ test("should not require region when Nodejs layer is already provided", async fu
   expect(result.props.layers).toStrictEqual([
     "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/1",
   ]);
-  expect(result.props.environmentVariables.PATH).toContain(
-    "/opt/nodejs20/bin",
-  );
+  expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs20/bin");
 });
 
 test("serve should return index.html content", async function () {
