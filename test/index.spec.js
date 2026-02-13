@@ -95,7 +95,7 @@ test("props.code is a symlink", async function () {
   const symlinkPath = path.join(__dirname, "../example/dist-link");
   // Clean up symlink if it exists from a previous test run
   if (fs.existsSync(symlinkPath)) {
-    fs.rmSync(symlinkPath, { force: true });
+    fs.rmSync(symlinkPath, { recursive: true, force: true });
   }
   // Create a junction (works without admin privileges on Windows) or symlink
   fs.symlinkSync(exampleDist, symlinkPath, "junction");
@@ -128,7 +128,7 @@ test("props.code is a symlink", async function () {
     );
   } finally {
     // Clean up symlink after test
-    fs.rmSync(symlinkPath, { force: true });
+    fs.rmSync(symlinkPath, { recursive: true, force: true });
   }
 });
 
