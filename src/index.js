@@ -1,7 +1,5 @@
-const lodash = require("lodash");
+const fs = require("fs");
 const path = require("path");
-const fse = require("fs-extra");
-const rimraf = require("rimraf");
 const { execSync } = require("child_process");
 
 /**
@@ -14,44 +12,49 @@ const { execSync } = require("child_process");
 module.exports = async function index(inputs, args, logger) {
   logger?.debug(`inputs params: ${JSON.stringify(inputs)}`);
   logger?.debug(`args params: ${JSON.stringify(args)}`);
-  const codeUri = lodash.get(inputs, "props.code");
-  if (lodash.isEmpty(codeUri)) throw new Error("props.code not found.");
-  const bashPath = lodash.get(inputs, "cwd");
+  const codeUri = inputs?.props?.code;
+  if (!codeUri) throw new Error("props.code not found.");
+  const bashPath = inputs?.cwd;
   let newCodeUri = path.isAbsolute(codeUri)
     ? codeUri
     : path.join(bashPath, codeUri);
 
   // Resolve symbolic link to actual directory
-  const stats = fse.lstatSync(newCodeUri);
+  const stats = fs.lstatSync(newCodeUri);
   if (stats.isSymbolicLink()) {
-    newCodeUri = fse.realpathSync(newCodeUri);
-    logger.debug(`Resolved symbolic link to actual path: ${newCodeUri}`);
+    newCodeUri = fs.realpathSync(newCodeUri);
+    logger?.debug(`Resolved symbolic link to actual path: ${newCodeUri}`);
   }
   const publicPath = path.join(__dirname, "./code/public");
   const PORT = 9000;
   const HOST = "0.0.0.0";
 
-  rimraf.sync(publicPath);
-  fse.ensureDirSync(publicPath);
-  fse.copySync(newCodeUri, publicPath);
-  const index = lodash.get(args, "index", "index.html");
-  if (!fse.existsSync(path.join(publicPath, index))) {
+  fs.rmSync(publicPath, {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 100,
+  });
+  fs.mkdirSync(publicPath, { recursive: true });
+  fs.cpSync(newCodeUri, publicPath, { recursive: true });
+  const index = args?.index ?? "index.html";
+  if (!fs.existsSync(path.join(publicPath, index))) {
     throw new Error(`${index} file not found.`);
   }
   if (index !== "index.html") {
-    fse.copySync(
+    fs.cpSync(
       path.join(publicPath, index),
       path.join(publicPath, "index.html"),
     );
   }
-  const serveVersion = lodash.get(args, "version", "latest");
+  const serveVersion = args?.version ?? "latest";
   const packageJsonPath = path.join(__dirname, "./code/package.json");
-  const packageJson = fse.readJsonSync(packageJsonPath);
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
   const dependencies = { ...(packageJson.dependencies || {}) };
 
   dependencies.serve = serveVersion;
   packageJson.dependencies = dependencies;
-  fse.writeJsonSync(packageJsonPath, packageJson, { spaces: 2 });
+  fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
   // Install dependencies via npm
   const codeDir = path.join(__dirname, "./code");
@@ -64,9 +67,9 @@ module.exports = async function index(inputs, args, logger) {
   }
   logger?.debug("npm install completed successfully");
 
-  const runtime = lodash.get(args, "runtime", "custom.debian11");
+  const runtime = args?.runtime ?? "custom.debian11";
 
-  let layers = [...lodash.get(inputs, "props.layers", [])];
+  let layers = [...(inputs?.props?.layers ?? [])];
   // Try to detect Node.js version from existing official layers
 
   // Pattern: acs:fc:{region}:official:layers/Nodejs{version}/versions/{n}
@@ -83,9 +86,11 @@ module.exports = async function index(inputs, args, logger) {
   // If no Node.js layer found, add default Nodejs22 layer
 
   if (!nodejsVersion) {
-    let region = lodash.get(inputs, "props.region");
+    let region = inputs?.props?.region;
     if (!region) {
-      throw new Error("props.region is required when no Nodejs layer is provided.");
+      throw new Error(
+        "props.region is required when no Nodejs layer is provided.",
+      );
     }
     nodejsVersion = "22";
     const defaultLayer = `acs:fc:${region}:official:layers/Nodejs${nodejsVersion}/versions/1`;
@@ -93,14 +98,14 @@ module.exports = async function index(inputs, args, logger) {
   }
 
   // Ensure environment variables for Node.js runtime
-  const envVars = { ...lodash.get(inputs, "props.environmentVariables", {}) };
+  const envVars = { ...(inputs?.props?.environmentVariables ?? {}) };
   const currentPath =
     envVars.PATH ||
     `/var/fc/lang/nodejs${nodejsVersion}/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin:/code:/code/bin`;
   let nodejsBin = `/opt/nodejs${nodejsVersion}/bin`;
-  const pathEntries = currentPath ? currentPath.split(":") : [];
+  const pathEntries = currentPath.split(":");
   if (!pathEntries.includes(nodejsBin)) {
-    envVars.PATH = currentPath ? `${nodejsBin}:${currentPath}` : nodejsBin;
+    envVars.PATH = `${nodejsBin}:${currentPath}`;
   }
   if (!envVars.NODE_PATH) {
     envVars.NODE_PATH = "/opt/nodejs/node_modules";
@@ -110,11 +115,13 @@ module.exports = async function index(inputs, args, logger) {
       "/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib";
   }
 
-  return lodash.merge(inputs, {
+  return {
+    ...inputs,
     props: {
+      ...inputs?.props,
       runtime,
       layers,
-      code: path.join(__dirname, "./code"), // 支持ZIP能力
+      code: path.join(__dirname, "./code"),
       customRuntimeConfig: {
         command: ["./node_modules/.bin/serve"],
         args: ["-s", "public", "-l", `tcp://${HOST}:${PORT}`],
@@ -122,5 +129,5 @@ module.exports = async function index(inputs, args, logger) {
       caPort: PORT,
       environmentVariables: envVars,
     },
-  });
+  };
 };

@@ -22,13 +22,8 @@
     "test": "jest",
     "format": "prettier --write ."
   },
-  "dependencies": {
-    "fs-extra": "^11.2.0",
-    "lodash": "^4.17.21",
-    "rimraf": "^5.0.5"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.2",
     "axios": "^1.7.9",
