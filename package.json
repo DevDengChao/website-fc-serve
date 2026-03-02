@@ -20,7 +20,8 @@
   ],
   "scripts": {
     "test": "jest",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "pub": "s registry publish"
   },
   "dependencies": {},
   "devDependencies": {
