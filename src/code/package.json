@@ -4,6 +4,7 @@
   "description": "使用 serve 代替 express 部署静态资源到 FC",
   "homepage": "https://www.github.com/DevDengChao/website-fc-serve",
   "scripts": {
+    "postinstall": "patch-package",
     "start": "serve -s public -l tcp://0.0.0.0:9000"
   },
   "keywords": [],
@@ -11,5 +12,8 @@
   "private": true,
   "dependencies": {
     "serve": "latest"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }

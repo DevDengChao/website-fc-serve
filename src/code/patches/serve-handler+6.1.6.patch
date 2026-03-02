@@ -1,0 +1,15 @@
+diff --git a/node_modules/serve-handler/src/index.js b/node_modules/serve-handler/src/index.js
+index 564f012..b258363 100644
+--- a/node_modules/serve-handler/src/index.js
++++ b/node_modules/serve-handler/src/index.js
+@@ -583,8 +583,9 @@ module.exports = async (request, response, config = {}, methods = {}) => {
+ 	const redirect = shouldRedirect(relativePath, config, cleanUrl);
+ 
+ 	if (redirect) {
++		const queryString = url.parse(request.url).search || '';
+ 		response.writeHead(redirect.statusCode, {
+-			Location: encodeURI(redirect.target)
++			Location: encodeURI(redirect.target) + queryString
+ 		});
+ 
+ 		response.end();

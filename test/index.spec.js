@@ -347,89 +347,91 @@ test("should not require region when Nodejs layer is already provided", async fu
   expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs20/bin");
 });
 
-test("serve should return index.html content", async function () {
-  const runCommand = (command, args, options) =>
-    new Promise((resolve, reject) => {
-      const child = spawn(command, args, { ...options, shell: true });
-      child.on("error", reject);
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-          return;
-        }
-        reject(new Error(`${command} exited with code ${code}`));
-      });
-    });
-
-  const httpGet = (url) =>
-    new Promise((resolve, reject) => {
-      const req = http.get(url, (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => resolve(data));
-      });
-      req.on("error", reject);
-    });
-
-  const waitForServer = async (url, timeoutMs) => {
-    const startTime = Date.now();
-    while (Date.now() - startTime < timeoutMs) {
-      try {
-        return await httpGet(url);
-      } catch (error) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-    throw new Error("Server did not become ready in time.");
-  };
-
-  const stopProcess = async (child, timeoutMs) => {
-    if (!child || child.exitCode !== null) {
-      return;
-    }
-    const closePromise = new Promise((resolve) => child.once("close", resolve));
-    if (process.platform === "win32") {
-      // On Windows with shell: true, child.kill() only kills the shell (cmd.exe),
-      // not the spawned serve process. Use taskkill /T to kill the process tree.
-      try {
-        execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: "ignore" });
-      } catch (error) {
-        // Process may have already exited
-      }
-      await Promise.race([
-        closePromise.then(() => true),
-        new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
-      ]);
-      // Release child process references to avoid keeping the event loop alive
-      child.removeAllListeners();
-      child.unref();
-    } else {
-      child.kill();
-      let closed = await Promise.race([
-        closePromise.then(() => true),
-        new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
-      ]);
-      if (closed || !child.pid) {
+const runCommand = (command, args, options) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(command, args, { ...options, shell: true });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
         return;
       }
-      try {
-        process.kill(child.pid, "SIGKILL");
-      } catch (error) {
-        if (error.code !== "ESRCH") {
-          throw error;
-        }
-      }
-      closed = await Promise.race([
-        closePromise.then(() => true),
-        new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
-      ]);
-      if (!closed && child.exitCode === null) {
-        throw new Error("Failed to stop serve process.");
+      reject(new Error(`${command} exited with code ${code}`));
+    });
+  });
+
+const httpGet = (url) =>
+  new Promise((resolve, reject) => {
+    const req = http.get(url, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => resolve({ data, res }));
+    });
+    req.on("error", reject);
+  });
+
+const waitForServer = async (url, timeoutMs) => {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const { data } = await httpGet(url);
+      return data;
+    } catch (error) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+  throw new Error("Server did not become ready in time.");
+};
+
+const stopProcess = async (child, timeoutMs) => {
+  if (!child || child.exitCode !== null) {
+    return;
+  }
+  const closePromise = new Promise((resolve) => child.once("close", resolve));
+  if (process.platform === "win32") {
+    // On Windows with shell: true, child.kill() only kills the shell (cmd.exe),
+    // not the spawned serve process. Use taskkill /T to kill the process tree.
+    try {
+      execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: "ignore" });
+    } catch (error) {
+      // Process may have already exited
+    }
+    await Promise.race([
+      closePromise.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+    ]);
+    // Release child process references to avoid keeping the event loop alive
+    child.removeAllListeners();
+    child.unref();
+  } else {
+    child.kill();
+    let closed = await Promise.race([
+      closePromise.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+    ]);
+    if (closed || !child.pid) {
+      return;
+    }
+    try {
+      process.kill(child.pid, "SIGKILL");
+    } catch (error) {
+      if (error.code !== "ESRCH") {
+        throw error;
       }
     }
-  };
+    closed = await Promise.race([
+      closePromise.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+    ]);
+    if (!closed && child.exitCode === null) {
+      throw new Error("Failed to stop serve process.");
+    }
+  }
+};
 
-  const codeDir = path.join(__dirname, "../src/code");
+const codeDir = path.join(__dirname, "../src/code");
+
+const startServe = async () => {
   const result = await subject(
     {
       cwd: exampleDir,
@@ -447,8 +449,6 @@ test("serve should return index.html content", async function () {
   });
 
   const serveArgs = result.props.customRuntimeConfig.args;
-  // Use absolute path to serve binary for cross-platform compatibility
-  // (the relative path in customRuntimeConfig is for Linux FC runtime)
   const serveBin = path.join(codeDir, "node_modules", ".bin", "serve");
   const serverProcess = spawn(serveBin, serveArgs, {
     cwd: codeDir,
@@ -456,14 +456,45 @@ test("serve should return index.html content", async function () {
     shell: true,
   });
 
+  await waitForServer("http://localhost:9000", 30000);
+  return serverProcess;
+};
+
+test("serve should return index.html content", async function () {
+  const serverProcess = await startServe();
+
   try {
-    const body = await waitForServer("http://localhost:9000", 30000);
+    const { data } = await httpGet("http://localhost:9000");
     const indexHtml = fs.readFileSync(
       path.join(codeDir, "public", "index.html"),
       "utf-8",
     );
-    expect(body).toContain(indexHtml.trim());
+    expect(data).toContain(indexHtml.trim());
   } finally {
+    await stopProcess(serverProcess, 5000);
+  }
+});
+
+test("redirect from .html to clean URL should preserve query parameters", async function () {
+  const serverProcess = await startServe();
+
+  // Create the test HTML file after startServe, since subject() overwrites public/
+  const testHtmlPath = path.join(codeDir, "public", "customer-service.html");
+  fs.writeFileSync(testHtmlPath, "<html><body>customer service</body></html>");
+
+  try {
+    // Request the .html URL with query parameters — serve's cleanUrls should
+    // redirect to the clean URL while preserving the query string.
+    const { res } = await httpGet(
+      "http://localhost:9000/customer-service.html?user=1&from=test",
+    );
+    expect(res.statusCode).toBe(301);
+    const location = res.headers.location;
+    expect(location).toContain("/customer-service");
+    expect(location).toContain("user=1");
+    expect(location).toContain("from=test");
+  } finally {
+    fs.unlinkSync(testHtmlPath);
     await stopProcess(serverProcess, 5000);
   }
 });
