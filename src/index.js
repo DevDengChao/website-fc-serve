@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
+const pkg = require("../package.json");
 
 /**
  * Plugin 插件入口
@@ -10,6 +11,7 @@ const { execSync } = require("child_process");
  */
 
 module.exports = async function index(inputs, args, logger) {
+  logger?.info(`Thanks for using website-fc-serve ${pkg.version} plugin! Made with ❤️ by DevDengChao.`);
   logger?.debug(`inputs params: ${JSON.stringify(inputs)}`);
   logger?.debug(`args params: ${JSON.stringify(args)}`);
   const codeUri = inputs?.props?.code;
