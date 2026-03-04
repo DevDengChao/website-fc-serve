@@ -12,8 +12,10 @@ let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const expectedServeCommand = ["./node_modules/.bin/serve"];
 const expectedServeArgs = ["public", "-l", "tcp://0.0.0.0:9000"];
-const expectedServeArgsWithFallback = [
-  "-s",
+const expectedServeArgsWithFallback = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
+const expectedServeArgsWithConfig = [
+  "-c",
+  "serve.json",
   "public",
   "-l",
   "tcp://0.0.0.0:9000",
@@ -53,8 +55,10 @@ test("default index.html", async function () {
     {},
   );
 
-  // content are copied from exampleDist to outputDir
-  expect(fs.readdirSync(outputDir)).toStrictEqual(fs.readdirSync(exampleDist));
+  // content are copied from exampleDist to outputDir (plus generated serve.json)
+  expect(fs.readdirSync(outputDir)).toEqual(
+    expect.arrayContaining(fs.readdirSync(exampleDist)),
+  );
 
   expect(result.props.runtime).toBe("custom.debian11");
   expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
@@ -65,6 +69,7 @@ test("default index.html", async function () {
   expect(result.props.customRuntimeConfig.args).toStrictEqual(
     expectedServeArgs,
   );
+  expect(fs.existsSync(path.join(outputDir, "serve.json"))).toBe(false);
 });
 
 test("relative codeUri", async function () {
@@ -121,8 +126,8 @@ test("props.code is a symlink", async function () {
     );
 
     // content are copied from the resolved actual directory to outputDir
-    expect(fs.readdirSync(outputDir)).toStrictEqual(
-      fs.readdirSync(exampleDist),
+    expect(fs.readdirSync(outputDir)).toEqual(
+      expect.arrayContaining(fs.readdirSync(exampleDist)),
     );
 
     expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
@@ -345,6 +350,88 @@ test("should not require region when Nodejs layer is already provided", async fu
     "acs:fc:cn-hangzhou:official:layers/Nodejs20/versions/1",
   ]);
   expect(result.props.environmentVariables.PATH).toContain("/opt/nodejs20/bin");
+});
+
+test("should generate serve config for custom headers", async function () {
+  const result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {
+      headers: {
+        "x-observe-app": "website",
+        "x-observe-env": "prod",
+      },
+    },
+  );
+
+  expect(result.props.customRuntimeConfig.args).toStrictEqual(
+    expectedServeArgsWithConfig,
+  );
+  const serveConfigPath = path.join(outputDir, "serve.json");
+  const serveConfig = JSON.parse(fs.readFileSync(serveConfigPath, "utf-8"));
+  expect(serveConfig).toStrictEqual({
+    headers: [
+      {
+        source: "**/*",
+        headers: [
+          { key: "x-observe-app", value: "website" },
+          { key: "x-observe-env", value: "prod" },
+        ],
+      },
+    ],
+  });
+});
+
+test("should inject version header only when debug is true", async function () {
+  const result = await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {
+      debug: true,
+    },
+  );
+
+  expect(result.props.customRuntimeConfig.args).toStrictEqual(
+    expectedServeArgsWithConfig,
+  );
+  const serveConfig = JSON.parse(
+    fs.readFileSync(path.join(outputDir, "serve.json"), "utf-8"),
+  );
+  expect(serveConfig.headers[0].headers).toStrictEqual([
+    {
+      key: "x-website-fc-serve-version",
+      value: require("../package.json").version,
+    },
+  ]);
+});
+
+test("should throw error for invalid headers argument", async function () {
+  await expect(
+    subject(
+      {
+        cwd: exampleDir,
+        props: {
+          code: exampleDist,
+          region: "cn-hangzhou",
+        },
+      },
+      {
+        headers: "x-demo=1",
+      },
+    ),
+  ).rejects.toThrow(
+    "args.headers must be an object or an array of { key, value }.",
+  );
 });
 
 const runCommand = (command, args, options) =>

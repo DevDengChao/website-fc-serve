@@ -92,6 +92,8 @@ resources:
 | fallbackToIndex | false           | 是否对未匹配的路由返回首页（SPA 模式，对应 serve -s） | false |
 | runtime         | custom.debian11 | 自定义函数运行时                                      | false |
 | version         | latest          | serve 依赖版本（npm 版本范围）                        | false |
+| headers         | -               | 自定义响应头（用于可观测性、安全策略等）              | false |
+| debug           | false           | 调试模式（自动注入版本响应头）                        | false |
 
 我们知道访问静态网站需要一个`html`的页面作为首页，比如您访问`http://www.serverless-devs.com/`首页的时候，其实实际访问的资源是`http://www.serverless-devs.com/index.html`。
 
@@ -146,6 +148,23 @@ actions: # 自定义执行逻辑
 ```
 
 可以参考[案例](https://github.com/devsapp/start-realwrold/tree/master/src)
+
+**自定义响应头**
+
+如果您希望在托管 `public` 静态资源时统一追加响应头（例如 `x-trace-id`、`x-observe-app`），可以通过 `headers` 参数配置：
+
+```yaml
+actions:
+  pre-deploy:
+    - plugin: website-fc-serve
+      args:
+        headers:
+          x-observe-app: website
+          x-observe-env: prod
+```
+
+插件会为 `serve` 生成对应配置，并对 `public` 目录下的所有响应追加这些 header。
+当 `debug: true` 时，还会自动注入 `x-website-fc-serve-version: <当前插件版本>`，便于快速定位线上静态服务版本。
 
 #### 作用域
 
