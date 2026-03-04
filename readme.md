@@ -166,6 +166,14 @@ actions:
 插件会为 `serve` 生成对应配置，并对 `public` 目录下的所有响应追加这些 header。
 当 `debug: true` 时，还会自动注入 `x-website-fc-serve-version: <当前插件版本>`，便于快速定位线上静态服务版本。
 
+```yaml
+actions:
+  pre-deploy:
+    - plugin: website-fc-serve
+      args:
+        debug: true
+```
+
 #### 作用域
 
 `website-fc-serve`只能在`pre-deploy`阶段生效。
