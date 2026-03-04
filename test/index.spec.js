@@ -452,7 +452,7 @@ const startServe = async () => {
   const serveBin = path.join(codeDir, "node_modules", ".bin", "serve");
   const serverProcess = spawn(serveBin, serveArgs, {
     cwd: codeDir,
-    stdio: "ignore",
+    stdio: "inherit",
     shell: true,
   });
 
