@@ -105,7 +105,7 @@ test("props.code is a symlink", async function () {
   // Create a junction (works without admin privileges on Windows) or symlink
   fs.symlinkSync(exampleDist, symlinkPath, "junction");
 
-  const mockLogger = { debug: jest.fn() };
+  const mockLogger = { debug: jest.fn(), info: jest.fn() };
 
   try {
     let result = await subject(
