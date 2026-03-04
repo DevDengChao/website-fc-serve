@@ -22,3 +22,6 @@ coverage/
 example/
 test/
 Makefile
+
+src/code/node_modules/
+src/code/public/
