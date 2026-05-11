@@ -7,3 +7,4 @@ coverage/
 
 .copilot/
 src/code/package-lock.json
+.worktrees/
