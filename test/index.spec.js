@@ -21,6 +21,13 @@ const expectedServeArgsWithConfig = [
   "tcp://0.0.0.0:9000",
 ];
 
+test("documentation should use complete-deploy instead of deprecated post-deploy hook", function () {
+  const readme = fs.readFileSync(path.join(__dirname, "../readme.md"), "utf-8");
+
+  expect(readme).not.toContain("post-deploy");
+  expect(readme).toContain("complete-deploy");
+});
+
 test("props.codeUri not present", async function () {
   try {
     await subject({}, {});
