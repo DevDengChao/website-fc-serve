@@ -19,7 +19,11 @@ function resolveCodeUri(inputs, logger) {
   const stats = fs.lstatSync(resolvedCodeUri);
   if (stats.isSymbolicLink()) {
     resolvedCodeUri = fs.realpathSync(resolvedCodeUri);
-    logger?.debug(`Resolved symbolic link to actual path: ${resolvedCodeUri}`);
+    logWithPluginTag(
+      logger,
+      "debug",
+      `Resolved symbolic link to actual path: ${resolvedCodeUri}`,
+    );
   }
   return resolvedCodeUri;
 }
@@ -156,6 +160,20 @@ function buildEnvVars(props, nodejsVersion) {
   return envVars;
 }
 
+function logWithPluginTag(logger, level, message) {
+  const constructorMethod = logger?.constructor?.[level];
+  if (typeof constructorMethod === "function") {
+    constructorMethod.call(logger.constructor, pkg.name, message);
+    return;
+  }
+  logger?.[level]?.(message);
+}
+
+function logStartupBanner(logger) {
+  const message = `Thanks for using ${pkg.name} ${pkg.version} plugin! Made with ❤️ by DevDengChao.`;
+  logWithPluginTag(logger, "info", message);
+}
+
 /**
  * Plugin 插件入口
  * @param inputs 组件的入口参数
@@ -164,9 +182,9 @@ function buildEnvVars(props, nodejsVersion) {
  */
 
 module.exports = async function index(inputs, args, logger) {
-  logger?.info(`Thanks for using website-fc-serve ${pkg.version} plugin! Made with ❤️ by DevDengChao.`);
-  logger?.debug(`inputs params: ${JSON.stringify(inputs)}`);
-  logger?.debug(`args params: ${JSON.stringify(args)}`);
+  logStartupBanner(logger);
+  logWithPluginTag(logger, "debug", `inputs params: ${JSON.stringify(inputs)}`);
+  logWithPluginTag(logger, "debug", `args params: ${JSON.stringify(args)}`);
   const index = args?.index ?? "index.html";
   const resolvedCodeUri = resolveCodeUri(inputs, logger);
   preparePublicDir(resolvedCodeUri, index);
@@ -174,7 +192,7 @@ module.exports = async function index(inputs, args, logger) {
   const serveVersion = args?.version ?? "latest";
   updateServeVersion(serveVersion);
   installDependencies();
-  logger?.debug("npm install completed successfully");
+  logWithPluginTag(logger, "debug", "npm install completed successfully");
 
   const fallbackToIndex = args?.fallbackToIndex ?? false;
   const runtime = args?.runtime ?? "custom.debian11";
