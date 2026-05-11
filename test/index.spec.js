@@ -142,6 +142,125 @@ test("props.code is a symlink", async function () {
   }
 });
 
+test("should log startup banner with explicit website-fc-serve tag when supported", async function () {
+  class TaggedLogger {
+    constructor(context) {
+      this.context = context;
+      this.debug = jest.fn();
+      this.info = jest.fn();
+    }
+  }
+
+  TaggedLogger.info = jest.fn();
+
+  const logger = new TaggedLogger("website");
+
+  await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {},
+    logger,
+  );
+
+  expect(TaggedLogger.info).toHaveBeenCalledWith(
+    "website-fc-serve",
+    expect.stringContaining("Thanks for using website-fc-serve"),
+  );
+  expect(logger.info).not.toHaveBeenCalled();
+});
+
+test("should log debug messages with explicit website-fc-serve tag when supported", async function () {
+  class TaggedLogger {
+    constructor(context) {
+      this.context = context;
+      this.debug = jest.fn();
+      this.info = jest.fn();
+    }
+  }
+
+  TaggedLogger.info = jest.fn();
+  TaggedLogger.debug = jest.fn();
+
+  const logger = new TaggedLogger("website");
+
+  await subject(
+    {
+      cwd: exampleDir,
+      props: {
+        code: exampleDist,
+        region: "cn-hangzhou",
+      },
+    },
+    {},
+    logger,
+  );
+
+  expect(TaggedLogger.debug).toHaveBeenNthCalledWith(
+    1,
+    "website-fc-serve",
+    expect.stringContaining("inputs params:"),
+  );
+  expect(TaggedLogger.debug).toHaveBeenNthCalledWith(
+    2,
+    "website-fc-serve",
+    expect.stringContaining("args params:"),
+  );
+  expect(TaggedLogger.debug).toHaveBeenNthCalledWith(
+    3,
+    "website-fc-serve",
+    "npm install completed successfully",
+  );
+  expect(logger.debug).not.toHaveBeenCalled();
+});
+
+test("should log symlink resolution with explicit website-fc-serve tag when supported", async function () {
+  const symlinkPath = path.join(__dirname, "../example/dist-link");
+  if (fs.existsSync(symlinkPath)) {
+    fs.rmSync(symlinkPath, { recursive: true, force: true });
+  }
+  fs.symlinkSync(exampleDist, symlinkPath, "junction");
+
+  class TaggedLogger {
+    constructor(context) {
+      this.context = context;
+      this.debug = jest.fn();
+      this.info = jest.fn();
+    }
+  }
+
+  TaggedLogger.info = jest.fn();
+  TaggedLogger.debug = jest.fn();
+
+  const logger = new TaggedLogger("website");
+
+  try {
+    await subject(
+      {
+        cwd: exampleDir,
+        props: {
+          code: symlinkPath,
+          region: "cn-hangzhou",
+        },
+      },
+      {},
+      logger,
+    );
+
+    expect(TaggedLogger.debug).toHaveBeenCalledWith(
+      "website-fc-serve",
+      expect.stringContaining("Resolved symbolic link to actual path:"),
+    );
+    expect(logger.debug).not.toHaveBeenCalled();
+  } finally {
+    fs.rmSync(symlinkPath, { recursive: true, force: true });
+  }
+});
+
 test("should prioritize user-provided runtime over default", async function () {
   let result = await subject(
     {
