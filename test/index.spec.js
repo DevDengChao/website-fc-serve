@@ -28,6 +28,24 @@ test("documentation should use complete-deploy instead of deprecated post-deploy
   expect(readme).toContain("complete-deploy");
 });
 
+test("publish ignore list should exclude local build and dependency artifacts", function () {
+  const signoreRules = fs
+    .readFileSync(path.join(__dirname, "../.signore"), "utf-8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+
+  expect(signoreRules).toEqual(
+    expect.arrayContaining([
+      "node_modules/",
+      ".worktrees/",
+      "src/code/node_modules/",
+      "src/code/public/",
+      "src/code/package-lock.json",
+    ]),
+  );
+});
+
 test("props.codeUri not present", async function () {
   try {
     await subject({}, {});
