@@ -1,10 +1,13 @@
 .idea/
 node_modules/
-src/code/public/
 coverage/
 .s
 
-
 .copilot/
-src/code/package-lock.json
 .worktrees/
+
+# Generated per-function directories (from website-fc-serve plugin)
+src/code/public/
+src/code/package-lock.json
+src/code/*/
+!/src/code/patches/

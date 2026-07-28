@@ -1,12 +1,49 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { execSync } = require("child_process");
 const pkg = require("../package.json");
 const PORT = 9000;
 const HOST = "0.0.0.0";
 const CODE_DIR = path.join(__dirname, "./code");
-const PUBLIC_DIR = path.join(CODE_DIR, "public");
-const PACKAGE_JSON_PATH = path.join(CODE_DIR, "package.json");
+
+const TEMPLATE_ENTRIES = new Set([
+  "package.json",
+  "package-lock.json",
+  "node_modules",
+  "patches",
+  "public",
+]);
+
+let cleanupPerformed = false;
+
+function cleanupStaleFunctionDirs() {
+  if (cleanupPerformed) return;
+  cleanupPerformed = true;
+  for (const entry of fs.readdirSync(CODE_DIR)) {
+    if (TEMPLATE_ENTRIES.has(entry)) continue;
+    const fullPath = path.join(CODE_DIR, entry);
+    if (fs.statSync(fullPath).isDirectory()) {
+      fs.rmSync(fullPath, { recursive: true, force: true });
+    }
+  }
+}
+
+function resolveFunctionDir(inputs) {
+  const codeUri = inputs?.props?.code;
+  const basePath = inputs?.cwd;
+  const funcName =
+    inputs?.props?.functionName ??
+    crypto
+      .createHash("md5")
+      .update(path.isAbsolute(codeUri) ? codeUri : path.join(basePath, codeUri))
+      .digest("hex")
+      .slice(0, 8);
+  const codeDir = path.join(CODE_DIR, funcName);
+  const publicDir = path.join(codeDir, "public");
+  const packageJsonPath = path.join(codeDir, "package.json");
+  return { funcName, codeDir, publicDir, packageJsonPath };
+}
 
 function resolveCodeUri(inputs, logger) {
   const codeUri = inputs?.props?.code;
@@ -28,41 +65,41 @@ function resolveCodeUri(inputs, logger) {
   return resolvedCodeUri;
 }
 
-function preparePublicDir(sourcePath, indexFile) {
-  fs.rmSync(PUBLIC_DIR, {
+function preparePublicDir(sourcePath, indexFile, publicDir) {
+  fs.rmSync(publicDir, {
     recursive: true,
     force: true,
     maxRetries: 3,
     retryDelay: 100,
   });
-  fs.mkdirSync(PUBLIC_DIR, { recursive: true });
-  fs.cpSync(sourcePath, PUBLIC_DIR, { recursive: true });
+  fs.mkdirSync(publicDir, { recursive: true });
+  fs.cpSync(sourcePath, publicDir, { recursive: true });
 
-  if (!fs.existsSync(path.join(PUBLIC_DIR, indexFile))) {
+  if (!fs.existsSync(path.join(publicDir, indexFile))) {
     throw new Error(`${indexFile} file not found.`);
   }
   if (indexFile !== "index.html") {
     fs.cpSync(
-      path.join(PUBLIC_DIR, indexFile),
-      path.join(PUBLIC_DIR, "index.html"),
+      path.join(publicDir, indexFile),
+      path.join(publicDir, "index.html"),
     );
   }
 }
 
-function updateServeVersion(serveVersion) {
-  const packageJson = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, "utf-8"));
+function updateServeVersion(serveVersion, packageJsonPath) {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
   const dependencies = { ...(packageJson.dependencies || {}) };
   dependencies.serve = serveVersion;
   packageJson.dependencies = dependencies;
-  fs.writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(packageJson, null, 2));
+  fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 }
 
-function installDependencies() {
+function installDependencies(codeDir) {
   try {
-    execSync("npm install --no-audit --no-fund", { cwd: CODE_DIR });
+    execSync("npm install --no-audit --no-fund", { cwd: codeDir });
   } catch (error) {
     throw new Error(
-      `Failed to install npm dependencies in ${CODE_DIR}: ${error.message}`,
+      `Failed to install npm dependencies in ${codeDir}: ${error.message}`,
     );
   }
 }
@@ -104,12 +141,12 @@ function buildHeaders(customHeaders, debug) {
   );
 }
 
-function writeServeConfig(headers) {
+function writeServeConfig(headers, publicDir) {
   if (headers.length === 0) {
     return null;
   }
   fs.writeFileSync(
-    path.join(PUBLIC_DIR, "serve.json"),
+    path.join(publicDir, "serve.json"),
     JSON.stringify(
       {
         headers: [{ source: "**/*", headers }],
@@ -193,20 +230,36 @@ module.exports = async function index(inputs, args, logger) {
   logStartupBanner(logger);
   logWithPluginTag(logger, "debug", `inputs params: ${JSON.stringify(inputs)}`);
   logWithPluginTag(logger, "debug", `args params: ${JSON.stringify(args)}`);
-  const index = args?.index ?? "index.html";
-  const resolvedCodeUri = resolveCodeUri(inputs, logger);
-  preparePublicDir(resolvedCodeUri, index);
 
-  const serveVersion = args?.version ?? "latest";
-  updateServeVersion(serveVersion);
-  installDependencies();
-  logWithPluginTag(logger, "debug", "npm install completed successfully");
+  cleanupStaleFunctionDirs();
 
   const fallbackToIndex = args?.fallbackToIndex ?? false;
   const runtime = args?.runtime ?? "custom.debian11";
+  const index = args?.index ?? "index.html";
+  const resolvedCodeUri = resolveCodeUri(inputs, logger);
+
+  const { codeDir, publicDir, packageJsonPath } = resolveFunctionDir(inputs);
+  fs.mkdirSync(codeDir, { recursive: true });
+  if (!fs.existsSync(packageJsonPath)) {
+    fs.cpSync(path.join(CODE_DIR, "package.json"), packageJsonPath);
+    const templatePatches = path.join(CODE_DIR, "patches");
+    if (fs.existsSync(templatePatches)) {
+      fs.cpSync(templatePatches, path.join(codeDir, "patches"), {
+        recursive: true,
+      });
+    }
+  }
+
+  preparePublicDir(resolvedCodeUri, index, publicDir);
+
+  const serveVersion = args?.version ?? "latest";
+  updateServeVersion(serveVersion, packageJsonPath);
+  installDependencies(codeDir);
+  logWithPluginTag(logger, "debug", "npm install completed successfully");
+
   const debug = args?.debug === true;
   const headers = buildHeaders(args?.headers, debug);
-  const serveConfigFile = writeServeConfig(headers);
+  const serveConfigFile = writeServeConfig(headers, publicDir);
   const { layers, nodejsVersion } = resolveLayers(inputs?.props);
   const envVars = buildEnvVars(inputs?.props, nodejsVersion);
 
@@ -216,7 +269,7 @@ module.exports = async function index(inputs, args, logger) {
       ...inputs?.props,
       runtime,
       layers,
-      code: CODE_DIR,
+      code: codeDir,
       customRuntimeConfig: {
         command: ["./node_modules/.bin/serve"],
         args: [
@@ -232,3 +285,6 @@ module.exports = async function index(inputs, args, logger) {
     },
   };
 };
+
+module.exports.resolveFunctionDir = resolveFunctionDir;
+module.exports.cleanupStaleFunctionDirs = cleanupStaleFunctionDirs;

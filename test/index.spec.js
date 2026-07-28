@@ -1,6 +1,7 @@
 let subject = require("../src/index");
 let fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { spawn, execSync } = require("child_process");
 const http = require("http");
 
@@ -8,7 +9,30 @@ jest.setTimeout(120000);
 
 let exampleDir = path.join(__dirname, "../example");
 let exampleDist = path.join(__dirname, "../example/dist");
-let outputDir = path.join(__dirname, "../src/code/public");
+const codeParent = path.join(__dirname, "../src/code");
+
+function resolveOutputDir(funcName) {
+  return path.join(codeParent, funcName, "public");
+}
+
+function resolveCodeDir(funcName) {
+  return path.join(codeParent, funcName);
+}
+
+function hashOf(uri) {
+  return crypto.createHash("md5").update(uri).digest("hex").slice(0, 8);
+}
+
+function expectedCodeDir(code, cwd, funcName) {
+  if (funcName) return path.join(codeParent, funcName);
+  const uri = path.isAbsolute(code) ? code : path.join(cwd || "", code);
+  return path.join(codeParent, hashOf(uri));
+}
+
+function expectedOutputDir(code, cwd, funcName) {
+  return path.join(expectedCodeDir(code, cwd, funcName), "public");
+}
+
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const expectedServeCommand = ["./node_modules/.bin/serve"];
 const expectedServeArgs = ["public", "-l", "tcp://0.0.0.0:9000"];
@@ -25,6 +49,114 @@ const expectedServeArgsWithConfig = [
   "-l",
   "tcp://0.0.0.0:9000",
 ];
+
+test("resolveFunctionDir should use functionName from props", function () {
+  const result = subject.resolveFunctionDir({
+    props: { functionName: "my-blog", code: "./dist" },
+    cwd: exampleDir,
+  });
+  expect(result.funcName).toBe("my-blog");
+  expect(path.basename(result.codeDir)).toBe("my-blog");
+  expect(result.publicDir).toBe(path.join(result.codeDir, "public"));
+  expect(result.packageJsonPath).toBe(path.join(result.codeDir, "package.json"));
+});
+
+test("resolveFunctionDir should hash codeUri when functionName is absent", function () {
+  const result = subject.resolveFunctionDir({
+    props: { code: "./dist" },
+    cwd: exampleDir,
+  });
+  const expectedHash = crypto
+    .createHash("md5")
+    .update(path.join(exampleDir, "./dist"))
+    .digest("hex")
+    .slice(0, 8);
+  expect(result.funcName).toBe(expectedHash);
+  expect(path.basename(result.codeDir)).toBe(expectedHash);
+});
+
+test("cleanupStaleFunctionDirs should remove old function dirs but keep template entries", function () {
+  const codeParent = path.join(__dirname, "../src/code");
+  const staleDir = path.join(codeParent, "stale-func-999");
+  fs.mkdirSync(staleDir, { recursive: true });
+
+  try {
+    subject.cleanupStaleFunctionDirs();
+
+    expect(fs.existsSync(staleDir)).toBe(false);
+    expect(fs.existsSync(path.join(codeParent, "package.json"))).toBe(true);
+    expect(fs.existsSync(path.join(codeParent, "public"))).toBe(true);
+  } finally {
+    if (fs.existsSync(staleDir)) {
+      fs.rmSync(staleDir, { recursive: true, force: true });
+    }
+  }
+});
+
+test("should isolate function directories when functionName differs", async function () {
+  const funcA = "test-isolation-a-999";
+  const funcB = "test-isolation-b-999";
+  const codeDirA = resolveCodeDir(funcA);
+  const codeDirB = resolveCodeDir(funcB);
+  const publicDirA = resolveOutputDir(funcA);
+  const publicDirB = resolveOutputDir(funcB);
+
+  try {
+    const resultA = await subject(
+      {
+        cwd: exampleDir,
+        props: {
+          functionName: funcA,
+          code: exampleDist,
+          region: "cn-hangzhou",
+        },
+      },
+      {},
+    );
+    expect(resultA.props.code).toBe(codeDirA);
+    expect(fs.readdirSync(publicDirA)).toEqual(
+      expect.arrayContaining(fs.readdirSync(exampleDist)),
+    );
+    expect(fs.existsSync(publicDirB)).toBe(false);
+
+    const resultB = await subject(
+      {
+        cwd: exampleDir,
+        props: {
+          functionName: funcB,
+          code: exampleDist,
+          region: "cn-hangzhou",
+        },
+      },
+      {},
+    );
+    expect(resultB.props.code).toBe(codeDirB);
+    expect(fs.readdirSync(publicDirB)).toEqual(
+      expect.arrayContaining(fs.readdirSync(exampleDist)),
+    );
+    expect(fs.readdirSync(publicDirA)).toEqual(
+      expect.arrayContaining(fs.readdirSync(exampleDist)),
+    );
+  } finally {
+    if (fs.existsSync(codeDirA)) fs.rmSync(codeDirA, { recursive: true, force: true });
+    if (fs.existsSync(codeDirB)) fs.rmSync(codeDirB, { recursive: true, force: true });
+  }
+});
+
+test("should isolate by codeUri hash when functionName is absent", async function () {
+  const dirA = path.join(__dirname, "../example/dist");
+  const dirB = path.join(__dirname, "../example/dist");
+  const codeDirA = expectedCodeDir(dirA, exampleDir);
+  const codeDirB = expectedCodeDir(dirB, exampleDir);
+
+  // Same absolute path → same hash directory
+  expect(codeDirA).toBe(codeDirB);
+
+  // For distinct relative paths, verify hash differs
+  const codeDirC = expectedCodeDir("./dist", exampleDir);
+  const codeDirD = expectedCodeDir("./build", exampleDir);
+  expect(codeDirC).not.toBe(codeDirD);
+});
 
 test("documentation should use complete-deploy instead of deprecated post-deploy hook", function () {
   const readme = fs.readFileSync(path.join(__dirname, "../readme.md"), "utf-8");
@@ -45,7 +177,7 @@ test("publish ignore list should exclude local build and dependency artifacts", 
       "node_modules/",
       ".worktrees/",
       "src/code/node_modules/",
-      "src/code/public/",
+      "src/code/*/",
       "src/code/package-lock.json",
     ]),
   );
@@ -70,7 +202,7 @@ test("path.cwd not present", async function () {
     },
     {},
   );
-  expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
+  expect(result.props.code).toBe(expectedCodeDir(exampleDist));
 });
 
 test("default index.html", async function () {
@@ -85,13 +217,16 @@ test("default index.html", async function () {
     {},
   );
 
-  // content are copied from exampleDist to outputDir (plus generated serve.json)
-  expect(fs.readdirSync(outputDir)).toEqual(
+  const codeDir = expectedCodeDir(exampleDist, exampleDir);
+  const publicDir = expectedOutputDir(exampleDist, exampleDir);
+
+  // content are copied from exampleDist to publicDir (plus generated serve.json)
+  expect(fs.readdirSync(publicDir)).toEqual(
     expect.arrayContaining(fs.readdirSync(exampleDist)),
   );
 
   expect(result.props.runtime).toBe("custom.debian11");
-  expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
+  expect(result.props.code).toBe(codeDir);
   expect(result.props.caPort).toBe(9000);
   expect(result.props.customRuntimeConfig.command).toStrictEqual(
     expectedServeCommand,
@@ -99,7 +234,7 @@ test("default index.html", async function () {
   expect(result.props.customRuntimeConfig.args).toStrictEqual(
     expectedServeArgs,
   );
-  expect(fs.existsSync(path.join(outputDir, "serve.json"))).toBe(false);
+  expect(fs.existsSync(path.join(publicDir, "serve.json"))).toBe(false);
 });
 
 test("relative codeUri", async function () {
@@ -113,7 +248,7 @@ test("relative codeUri", async function () {
   };
   let result = await subject(inputs, {});
 
-  expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
+  expect(result.props.code).toBe(expectedCodeDir("./dist", exampleDir));
 });
 
 test("custom index.htm", async function () {
@@ -155,12 +290,15 @@ test("props.code is a symlink", async function () {
       mockLogger,
     );
 
-    // content are copied from the resolved actual directory to outputDir
-    expect(fs.readdirSync(outputDir)).toEqual(
+    const codeDir = expectedCodeDir(symlinkPath, exampleDir);
+    const publicDir = expectedOutputDir(symlinkPath, exampleDir);
+
+    // content are copied from the resolved actual directory to publicDir
+    expect(fs.readdirSync(publicDir)).toEqual(
       expect.arrayContaining(fs.readdirSync(exampleDist)),
     );
 
-    expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
+    expect(result.props.code).toBe(codeDir);
 
     // Verify that the symlink was resolved and logger was called
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -306,7 +444,7 @@ test("should prioritize user-provided runtime over default", async function () {
   );
 
   expect(result.props.runtime).toBe("custom.debian12");
-  expect(result.props.code).toBe(path.join(__dirname, "../src/code"));
+  expect(result.props.code).toBe(expectedCodeDir(exampleDist, exampleDir));
   expect(result.props.caPort).toBe(9000);
   expect(result.props.customRuntimeConfig.command).toStrictEqual(
     expectedServeCommand,
@@ -521,7 +659,8 @@ test("should generate serve config for custom headers", async function () {
   expect(result.props.customRuntimeConfig.args).toStrictEqual(
     expectedServeArgsWithConfig,
   );
-  const serveConfigPath = path.join(outputDir, "serve.json");
+  const publicDir = expectedOutputDir(exampleDist, exampleDir);
+  const serveConfigPath = path.join(publicDir, "serve.json");
   const serveConfig = JSON.parse(fs.readFileSync(serveConfigPath, "utf-8"));
   expect(serveConfig).toStrictEqual({
     headers: [
@@ -553,8 +692,9 @@ test("should inject version header only when debug is true", async function () {
   expect(result.props.customRuntimeConfig.args).toStrictEqual(
     expectedServeArgsWithConfig,
   );
+  const publicDir = expectedOutputDir(exampleDist, exampleDir);
   const serveConfig = JSON.parse(
-    fs.readFileSync(path.join(outputDir, "serve.json"), "utf-8"),
+    fs.readFileSync(path.join(publicDir, "serve.json"), "utf-8"),
   );
   expect(serveConfig.headers[0].headers).toStrictEqual([
     {
@@ -665,8 +805,6 @@ const stopProcess = async (child, timeoutMs) => {
   }
 };
 
-const codeDir = path.join(__dirname, "../src/code");
-
 const startServe = async () => {
   const result = await subject(
     {
@@ -678,6 +816,8 @@ const startServe = async () => {
     },
     {},
   );
+
+  const codeDir = result.props.code;
 
   await runCommand(npmCommand, ["install", "--no-audit", "--no-fund"], {
     cwd: codeDir,
@@ -693,11 +833,11 @@ const startServe = async () => {
   });
 
   await waitForServer("http://localhost:9000", 30000);
-  return serverProcess;
+  return { serverProcess, codeDir };
 };
 
 test("serve should return index.html content", async function () {
-  const serverProcess = await startServe();
+  const { serverProcess, codeDir } = await startServe();
 
   try {
     const { data } = await httpGet("http://localhost:9000");
@@ -712,7 +852,7 @@ test("serve should return index.html content", async function () {
 });
 
 test("redirect from .html to clean URL should preserve query parameters", async function () {
-  const serverProcess = await startServe();
+  const { serverProcess, codeDir } = await startServe();
 
   // Create the test HTML file after startServe, since subject() overwrites public/
   const testHtmlPath = path.join(codeDir, "public", "customer-service.html");

@@ -26,5 +26,5 @@ test/
 Makefile
 
 src/code/node_modules/
-src/code/public/
 src/code/package-lock.json
+src/code/*/
