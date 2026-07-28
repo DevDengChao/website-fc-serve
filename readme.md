@@ -4,7 +4,7 @@
 
 <p align="center" class="flex justify-center">
   <a href="https://nodejs.org/en/" class="ml-1">
-    <img src="https://img.shields.io/badge/node-%3E%3D%2016-brightgreen" alt="node.js version">
+    <img src="https://img.shields.io/badge/node-%3E%3D%2022-brightgreen" alt="node.js version">
   </a>
   <a href="https://github.com/devsapp/website-fc/blob/master/LICENSE" class="ml-1">
     <img src="https://img.shields.io/badge/License-MIT-green" alt="license">
