@@ -58,7 +58,9 @@ test("resolveFunctionDir should use functionName from props", function () {
   expect(result.funcName).toBe("my-blog");
   expect(path.basename(result.codeDir)).toBe("my-blog");
   expect(result.publicDir).toBe(path.join(result.codeDir, "public"));
-  expect(result.packageJsonPath).toBe(path.join(result.codeDir, "package.json"));
+  expect(result.packageJsonPath).toBe(
+    path.join(result.codeDir, "package.json"),
+  );
 });
 
 test("resolveFunctionDir should hash codeUri when functionName is absent", function () {
@@ -138,8 +140,10 @@ test("should isolate function directories when functionName differs", async func
       expect.arrayContaining(fs.readdirSync(exampleDist)),
     );
   } finally {
-    if (fs.existsSync(codeDirA)) fs.rmSync(codeDirA, { recursive: true, force: true });
-    if (fs.existsSync(codeDirB)) fs.rmSync(codeDirB, { recursive: true, force: true });
+    if (fs.existsSync(codeDirA))
+      fs.rmSync(codeDirA, { recursive: true, force: true });
+    if (fs.existsSync(codeDirB))
+      fs.rmSync(codeDirB, { recursive: true, force: true });
   }
 });
 
