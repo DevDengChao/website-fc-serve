@@ -87,7 +87,6 @@ test("cleanupStaleFunctionDirs should remove old function dirs but keep template
 
     expect(fs.existsSync(staleDir)).toBe(false);
     expect(fs.existsSync(path.join(codeParent, "package.json"))).toBe(true);
-    expect(fs.existsSync(path.join(codeParent, "public"))).toBe(true);
   } finally {
     if (fs.existsSync(staleDir)) {
       fs.rmSync(staleDir, { recursive: true, force: true });

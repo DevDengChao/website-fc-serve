@@ -12,7 +12,6 @@ const TEMPLATE_ENTRIES = new Set([
   "package-lock.json",
   "node_modules",
   "patches",
-  "public",
 ]);
 
 let cleanupPerformed = false;
