@@ -72,20 +72,25 @@ function buildHeaders(customHeaders, debug) {
     customHeaders === undefined
       ? []
       : Array.isArray(customHeaders)
-      ? customHeaders
-          .filter((header) => header?.key)
-          .map((header) => ({
-            key: String(header.key),
-            value: String(header.value ?? ""),
-          }))
-      : typeof customHeaders === "object" && customHeaders !== null
-        ? Object.entries(customHeaders)
-            .filter(([key]) => key)
-            .map(([key, value]) => ({ key: String(key), value: String(value ?? "") }))
-        : null;
+        ? customHeaders
+            .filter((header) => header?.key)
+            .map((header) => ({
+              key: String(header.key),
+              value: String(header.value ?? ""),
+            }))
+        : typeof customHeaders === "object" && customHeaders !== null
+          ? Object.entries(customHeaders)
+              .filter(([key]) => key)
+              .map(([key, value]) => ({
+                key: String(key),
+                value: String(value ?? ""),
+              }))
+          : null;
 
   if (!normalizedCustomHeaders) {
-    throw new Error("args.headers must be an object or an array of { key, value }.");
+    throw new Error(
+      "args.headers must be an object or an array of { key, value }.",
+    );
   }
 
   const debugHeaders = debug
@@ -93,7 +98,9 @@ function buildHeaders(customHeaders, debug) {
     : [];
   const headers = [...debugHeaders, ...normalizedCustomHeaders];
   return Array.from(
-    new Map(headers.map((header) => [header.key.toLowerCase(), header])).values(),
+    new Map(
+      headers.map((header) => [header.key.toLowerCase(), header]),
+    ).values(),
   );
 }
 
@@ -155,7 +162,8 @@ function buildEnvVars(props, nodejsVersion) {
     envVars.NODE_PATH = "/opt/nodejs/node_modules";
   }
   if (!envVars.LD_LIBRARY_PATH) {
-    envVars.LD_LIBRARY_PATH = "/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib";
+    envVars.LD_LIBRARY_PATH =
+      "/code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib";
   }
   return envVars;
 }

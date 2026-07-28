@@ -12,7 +12,12 @@ let outputDir = path.join(__dirname, "../src/code/public");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const expectedServeCommand = ["./node_modules/.bin/serve"];
 const expectedServeArgs = ["public", "-l", "tcp://0.0.0.0:9000"];
-const expectedServeArgsWithFallback = ["-s", "public", "-l", "tcp://0.0.0.0:9000"];
+const expectedServeArgsWithFallback = [
+  "-s",
+  "public",
+  "-l",
+  "tcp://0.0.0.0:9000",
+];
 const expectedServeArgsWithConfig = [
   "-c",
   "serve.json",
